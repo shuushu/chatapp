@@ -166,6 +166,7 @@
 <style lang="scss" scoped>
 #login{
   z-index: 29;
+  background: #efefef;
 }
   .md-title{
     .md-icon{color: #000;}
