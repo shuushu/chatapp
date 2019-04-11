@@ -31,8 +31,8 @@ const routes = [...routerMap.map(route => {
 
 const router = new VueRouter({
   mode: 'history',
-  base: '/chat',
-  //base: __dirname,
+  //base: '/chat',
+  base: __dirname,
   routes
 });
 
