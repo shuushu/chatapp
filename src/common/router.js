@@ -12,7 +12,7 @@ const routerMap = [
   { name: 'member', path: '/member', component: '/Member'},
   { name: 'ready', path: '/ready', component: '/Ready'},
   { name: 'message', path: '/message/:id', component: '/Message'},
-  //{ name: 'error', path: '/*', component: '/Error'}  
+  { name: 'error', path: '*', component: '/Error'}  
 ];
 
 const redirectRoute = [
@@ -31,8 +31,8 @@ const routes = [...routerMap.map(route => {
 
 const router = new VueRouter({
   mode: 'history',
-  //base: '/chat',
-  base: __dirname,
+  base: '/chat',
+  //base: __dirname,
   routes
 });
 

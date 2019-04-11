@@ -182,14 +182,21 @@ const actions = {
         msgData.path = path
       }
 
-      // 날짜가 변경될 때
+      // 날짜가 변경될 때 chatDate 서버기록 날짜
       if (chatDate !== today) {
         let oobj = {},
-            tempKey = firebase.database().ref().push().key();
+            tempKey = firebase.database().ref('myChat/room').push(),
+            noti = [{
+              text: today,
+              type: 3,
+              write: 'admin'
+            }];
         
-        oobj[tempKey] = msgData;
+        tempKey = tempKey.getKey()  
+        oobj[tempKey] = msgData
+
         firebase.database().ref(`myChat/room/${key}/date`).set(today)        
-        firebase.database().ref(`myChat/room/${key}/item`).set(oobj)
+        firebase.database().ref(`myChat/room/${key}/item`).set({ ...noti, ...oobj })
       } else {
         firebase.database().ref(`myChat/room/${key}/item`).push(msgData)
       }
