@@ -33,7 +33,23 @@ const yyyymm = v => {
   return [ v.getFullYear(), (mm > 9 ? '' : '0') + mm, (dd > 9 ? '' : '0') + dd ].join('');
 }
 
+/*
+  @params1 deviceHeight 디바이스 높이 {Number}
+  @params2 context 컨텐츠 총 높이 {DOM Object}
+*/
+const isCurrentView = (deviceHeight, context) => {
+  let currentTop1 = document.querySelector('html'), // pc
+      currentTop2 = document.querySelector('body'), // mobile
+      contHeight = context.scrollHeight;
+
+  // 스크롤 위치가 하단 뷰 즉 내가 하단에서 채팅을 하고 있을때
+  if ((currentTop2.scrollTop || currentTop1.scrollTop) + deviceHeight >= contHeight - deviceHeight) {
+    return true
+  } else {
+    return false
+  }
+}
 
 
-export { urlExp, curry, yyyymm, urlify }
+export { urlExp, curry, yyyymm, urlify, isCurrentView }
 

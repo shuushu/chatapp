@@ -113,7 +113,10 @@ export default {
       return new Promise(resolve => {
         firebase.auth().signOut().then(() => {
           resolve(true)
-        }).catch(error => {
+          setTimeout(() => {
+            this.commit(ROOT.SET_AUTH, null)
+          }, 500)          
+        }).catch(error => {          
           resolve(false, error)
         });
       })
@@ -125,8 +128,9 @@ export default {
   *dialogConfirm() {
     yield put(ROOT.POPUP_CONFIRM, arguments[1])
   },
-  *invite() {        
-    yield put(ROOT.SET_INVITE, !this.state.invite)
+  *invite() {
+    let value = arguments[1] === undefined ? !this.state.invite : arguments[1];
+    yield put(ROOT.SET_INVITE, value)
   },
   *getDeviceHeight() {       
     yield put(ROOT.DEVICE_HEIGHT, arguments[1])

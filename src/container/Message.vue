@@ -15,8 +15,10 @@
                 <span class="name">{{ mappingUserName(item.write) }}</span>
               </div>
               <div class="talk-wrap">
-                  <Talkbox :class="isWrite(item.write)">                
-                  {{ item.text }}
+                  <Talkbox :class="isWrite(item.write)">
+                    <div class="addfile-image" v-if="item.type === 1"><img :src="item.path" alt=""></div>
+                    <span v-if="item.vhtml" v-html="item.text"></span>
+                    <span v-else>{{ item.text }}</span>                    
                   </Talkbox>
               </div>              
           </div>        
@@ -55,7 +57,7 @@
   import Talkbox from '@/components/Talkbox.vue'
   import Member from '@/container/Member.vue'
   import { EventBus } from '@/main'  
-  import { yyyymm } from '@/common/util'
+  import { yyyymm, isCurrentView } from '@/common/util'
   
   export default {
     name: 'Message',
@@ -90,7 +92,7 @@
     destroyed() {
       EventBus.$off('sendMessage')
     },
-    created () {            
+    created () {
       let data = {
         key: this.$route.params.id,
         today: yyyymm(new Date())
@@ -119,18 +121,23 @@
     updated() {
       if (!this.scrollFlag) {          
           setTimeout(() => {            
-            this.scrollToEnd();
+            this.scrollToEnd(true);
           }, 1000)
           this.scrollFlag = true
         }      
     },
     methods: {
-        scrollToEnd() {          
+        scrollToEnd(init) {
           let container = this.$el.querySelector('.message-wrap'),
               html = document.querySelector('html'),
-              body = document.querySelector('body')
-          html.scrollTop = container.scrollHeight;
-          body.scrollTop = container.scrollHeight;
+              body = document.querySelector('body'),
+              deviceHeight = this.deviceHeight,
+              current = isCurrentView(deviceHeight, container);
+
+          if (current || init) {
+            html.scrollTop = container.scrollHeight;
+            body.scrollTop = container.scrollHeight;
+          }        
         },
     
         historyBack(){
@@ -139,7 +146,7 @@
         sendMsg(data) {
           data.key = this.$route.params.id
           data.write = this.auth.uid
-          
+                  
           new Promise(resolve => {
               // 이미지 첨부할때
               if (data.addFile) {
@@ -157,7 +164,8 @@
             // 프로세스가 순차처리 되었을때
             if (res) {
               EventBus.$emit('sendResult', true) 
-              this.scrollToEnd()
+              // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.              
+              this.scrollToEnd(true)
             } else {
               this.$run('dialogAlert', { message: 'Error' })
             }      

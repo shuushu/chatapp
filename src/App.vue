@@ -294,5 +294,10 @@ body{
   .md-dialog {
     z-index: 40;
   }
-}  
+}
+
+.inviteWrap + #footer .form-area{  
+  transition: all 500ms;
+  transform: translate3d(0, 76px, 0);
+}
 </style>

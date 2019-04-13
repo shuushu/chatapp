@@ -50,7 +50,9 @@
                 roomList: state => state.chat.roomList
             })
         },
-        created () {
+        created () {  
+            // 초대창 닫기
+            this.$run('invite', false) 
             // 유저 정보를 먼저 받는다
             this.$run(MEMBER.GET_MEMBER).then(() => {
               this.$run(CHAT.GET_ROOMLIST, this.member)

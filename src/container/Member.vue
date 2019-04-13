@@ -142,7 +142,9 @@
     }
     .btnWrap{
       display: flex;
-      margin: 0 10px;
+      padding: 0 10px 150px 10px;      
+      margin: 0;
+      background: #fff;
       .md-accent,
       .md-accent + .md-button{
         width: 48%;
