@@ -35,11 +35,11 @@
               <Talkbox :class="isWrite(msg.write)">
                 <div class="addfile-image" v-if="msg.type === 1"><img :src="msg.path" alt=""></div>
                 <span v-if="msg.vhtml" v-html="msg.text"></span>
-                <span v-else>{{ msg.text }}</span>                
+                <span v-else>{{ msg.text }}</span>
+                <span v-if="msg.unread" class="unread">
+                  {{ sunUnread(msg.unread) }} 
+                </span>
               </Talkbox>
-              <span v-if="msg.unread">
-                {{ sunUnread(msg.unread) }}      
-              </span>
           </div>
         </div>
     </div>
@@ -51,6 +51,18 @@
     <transition name="popmember">
       <Member  :chatMember="chatMember" v-if="invite" />
     </transition>
+
+    <transition name="msgAlarm">
+      <div class="alarmLayer" v-if="tipFlag === true && latest !== false">
+        <div class="wrap">
+          <md-avatar>            
+            <img :src="member[latest.write].photoURL" :alt="member[latest.write].displayName" />
+          </md-avatar>
+          <span class="name">{{member[latest.write].displayName}}</span>
+          <span class="text">{{latest.text}}</span>
+        </div>
+      </div>      
+    </transition>
   </div>  
 </template>
 
@@ -61,6 +73,7 @@
   import Member from '@/container/Member.vue'
   import { EventBus } from '@/main'  
   import { yyyymm, isCurrentView } from '@/common/util'
+import { setTimeout } from 'timers';
   
   export default {
     name: 'Message',
@@ -70,12 +83,14 @@
     },
     data () {
       return {
+        tipFlag: false,
         roomkey: null,
         scrollFlag: false
       }
     },
     computed: {
       ...mapState({
+          latest: state => state.chat.latest,
           invite: state => state.invite,
           auth: state => state.auth,
           isLoading: state => state.ready,
@@ -88,14 +103,26 @@
           deviceHeight: state => state.height
       })
     },
-    watch: {
-      message () {
-        //this.scrollToEnd()
-      }
+    watch: { 
+      message() {
+        setTimeout(() => {
+          if (this.latest !== false && this.auth.uid !== this.latest.writer) {
+            let currentView = this.scrollToEnd();          
+            // 이전 메세지를 보고 있을 때
+            if (currentView === false) {
+              this.tipFlag = true
+              setTimeout(() => {
+                this.tipFlag = false
+              }, 2000)
+            }
+          } 
+        }, 300)       
+      }   
     },
     destroyed() {
       EventBus.$off('sendMessage')
       this.$run(CHAT.ROOMOUT, this.roomkey)
+      this.$run(CHAT.REMOVE_LATEST, this.roomkey)
     },
     created () {
       this.roomkey = this.$route.params.id
@@ -115,25 +142,26 @@
       if (this.member === null) {        
         this.$router.push('/list')
       } else {
-        this.$run(CHAT.GET_CHAT_MEMBER, data)
+        this.$run(CHAT.SET_LATEST, data)
+        this.$run(CHAT.GET_CHAT_MEMBER, data)        
         this.$run(CHAT.GET_CHAT_DATE, data).then(res => {
           if (res) {
               this.$run(CHAT.GET_MESSAGE, data)
-              this.$run(CHAT.GET_OLD_MESSAGE, data)
+              this.$run(CHAT.GET_OLD_MESSAGE, data)              
           }
         })
       }  
     },
     updated() {
       if (!this.scrollFlag) {          
-          setTimeout(() => {            
+          setTimeout(() => {
             this.scrollToEnd(true);
           }, 1000)
           this.scrollFlag = true
         }      
     },
     methods: {
-        sunUnread(data) {
+        sunUnread(data) {          
           let cnt = 0;
           for (let item in data) {
             cnt += data[item]
@@ -162,8 +190,7 @@
         },
         sendMsg(data) {
           data.key = this.$route.params.id
-          data.write = this.auth.uid
-                  
+          data.write = this.auth.uid            
           new Promise(resolve => {
               // 이미지 첨부할때
               if (data.addFile) {
@@ -177,11 +204,11 @@
                 this.$run(CHAT.SEND_MESSAGE, data)
                 resolve(true)
               }
-          }).then(res => {
+          }).then(res => {            
             // 프로세스가 순차처리 되었을때
             if (res) {
               EventBus.$emit('sendResult', true) 
-              // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.              
+              // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.            
               this.scrollToEnd(true)
             } else {
               this.$run('dialogAlert', { message: 'Error' })
@@ -246,6 +273,20 @@
   padding-top: 48px;
   > div{
     padding: 0;
+  }
+  .left .unread{
+    right: 0;
+    margin-right: -14px;
+  }
+  .right .unread{
+    left: 0;
+    margin-left: -14px;
+  }
+  .unread{    
+    position: absolute;    
+    font-size: 11px;
+    top: 0;
+    color: #ff5252;
   }
   .message-wrap{
     padding-bottom: 150px;
@@ -339,6 +380,43 @@
     }
   }
 }
+.alarmLayer{
+    position: fixed;
+    bottom: 100px;
+    width: 100%;
+    text-align: center;
+    transition: all 600ms;
+    .wrap{
+      position: relative;
+      display: inline-block;
+      max-width: 90%;
+      border: solid 1px #ccc;
+      background-color: #fff;
+      border-radius: 5px;
+      padding: 5px 10px 5px 100px;
+    }
+    .md-avatar{
+      position: absolute;
+      left: 5px;
+      top: 5px;
+    }
+    .name{
+      position: absolute;
+      left: 50px;
+      display: block;
+      line-height: 40px;
+      height: 40px;
+    }
+    .text{
+      display: block;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      width: 100%;
+      height: 40px;
+      line-height: 40px;
+    }
+}
 // animate
 .popmember-enter{
   transform: translate3d(0, 0, 0);
@@ -349,4 +427,5 @@
 .popmember-leave-active{
   transform: translate3d(100%, 0, 0);
 }
+
 </style>

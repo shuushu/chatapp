@@ -6,7 +6,8 @@ import { yyyymm, urlExp, urlify } from '@/common/util'
 
 let roomListOn, 
     messageOn,
-    chatDateKey;
+    chatDateKey,
+    latestLisner;
 
 let state = {
   roomList: null,
@@ -14,7 +15,8 @@ let state = {
   oldMsg: null,
   progress: 0,
   chatMember: null,
-  chatDate: null
+  chatDate: null,
+  latest: false
 };
 
 const mutations = {
@@ -24,6 +26,9 @@ const mutations = {
   GET_MESSAGE: (state, data) => {
     state.message = data
   },
+  SET_LATEST: (state, data) => {
+    state.latest = data
+  },  
   GET_OLD_MESSAGE: (state, data) => {
     state.oldMsg = data
   },
@@ -127,23 +132,27 @@ const actions = {
 
             messageOn = firebase.database().ref(`myChat/room/${data.key}/item`)
             messageOn.on('value', snap => {
+                async function seqStep() {
+                  for(let key in result) {
+                    if (result[key].unread !== undefined) {
+                      if (result[key].unread[this.state.auth.uid]) {
+                        result[key].unread[this.state.auth.uid] = 0
+                        await firebase.database().ref(`myChat/room/${data.key}/item/${key}/unread/${this.state.auth.uid}`).set(0)
+                      }
+                    }
+                  }
+                  await this.commit(CHAT.GET_MESSAGE, result)
+                  await this.commit(ROOT.GET_MESSAGE_REQ_SUCCESS)
+                }  
+
                 let result = snap.val();
                  if (result) {
                     if (chatDate === data.today) {
                         myStorage[data.key][data.today] = result;
-                    }
-
-                    for(let key in result) {
-                      if (result[key].unread !== undefined) {
-                        if (result[key].unread[this.state.auth.uid]) {                        
-                          firebase.database().ref(`myChat/room/${data.key}/item/${key}/unread/${this.state.auth.uid}`).set(0)
-                        }
-                      }
-                    }
-                    
+                    }                  
+                    seqStep.call(this)
                     localStorage.setItem('myChatMessage', JSON.stringify(myStorage));
-                    this.commit(CHAT.GET_MESSAGE, result)
-                    this.commit(ROOT.GET_MESSAGE_REQ_SUCCESS)
+                    
                 } else {
                     this.commit(ROOT.GET_MESSAGE_REQ_FAIL)
                 }
@@ -186,6 +195,32 @@ const actions = {
           yield put(ROOT.GET_OLD_MESSAGE_REQ_FAIL)
       }      
   },
+  *SET_LATEST() {
+    let { key } = arguments[1]
+
+    yield call(() => {
+      return new Promise(() => {
+        if (latestLisner) {
+          latestLisner.off('value')
+        }
+
+        latestLisner = firebase.database().ref(`myChat/room/${key}/latest`)
+        latestLisner.on('value', snap => {
+          if (snap.val()) {
+            this.commit(CHAT.SET_LATEST, snap.val())
+          }
+        })
+      })
+    })
+  },
+  *REMOVE_LATEST() {
+    yield call(() => {
+      return new Promise(() => {        
+        firebase.database().ref(`myChat/room/${arguments[1]}/latest`).set(false)
+        this.commit(CHAT.SET_LATEST, false)
+      })
+    })
+  },
   *SEND_MESSAGE() {
       let { type, write, today, key, text, path } = arguments[1],
           msgData =  { type, text, write },
@@ -225,6 +260,8 @@ const actions = {
       } else {
         msgKey = firebase.database().ref(`myChat/room/${key}/item`).push(msgData);        
       }
+      // 챗 알림메세지
+      firebase.database().ref(`myChat/room/${key}/latest`).set(msgData)
 
       async function setAlarm(recive) {
         let { myuid, chatMember, key, text } = recive, temp = {};
