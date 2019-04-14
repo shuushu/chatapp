@@ -25,7 +25,12 @@
             </span>
             <span class="title">{{ items.text }}</span>            
           </div>
-        </md-list-item>        
+          <md-badge v-if="alarm[key] > 0" :md-content="alarm[key]">
+            <md-button class="md-icon-button">
+              <md-icon>notifications</md-icon>
+            </md-button>
+          </md-badge>
+        </md-list-item>
       </md-list>
 
     </div>
@@ -44,6 +49,7 @@
         },
         computed: {
             ...mapState({
+                alarm: state => state.alarm,
                 auth: state => state.auth,
                 isLoading: state => state.ready,
                 member: state => state.member.memberList,
@@ -71,6 +77,9 @@
     background-color: #fff;
     > div{
       padding-bottom: 100px;
+    }
+    .md-badge{
+      position: absolute;
     }
     .join-member {      
       .join-item{        

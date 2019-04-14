@@ -10,6 +10,13 @@
         <h1 class="head-title" v-if="name">{{ name.toUpperCase() }}</h1>
 
         <div class="md-toolbar-section-end">
+          <md-badge v-if="alarm > 0" :md-content="alarm">
+            <md-button class="md-icon-button">
+              <md-icon>notifications</md-icon>
+            </md-button>
+          </md-badge>
+
+
           <md-button class="md-icon-button" @click="logout">
             <md-icon>highlight_off</md-icon>
           </md-button>
@@ -25,6 +32,10 @@
       selectedEmployee: ''
     }),
     props: {
+      alarm: {
+        default: 0,
+        type: Number
+      },
       name: {
         type: String
       }

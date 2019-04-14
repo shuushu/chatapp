@@ -12,5 +12,9 @@ export default {
     message: null,
     action: null
   },
-  invite: false
+  invite: false,
+  alarm: {
+    item: {},
+    total: 0
+  }
 }

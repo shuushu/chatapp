@@ -36,15 +36,36 @@ const router = new VueRouter({
   routes
 });
 
-
+let lisner;
 router.beforeEach((to, from, next) => {
     // 실시간 로그인 인증상태 감시
-    firebase.auth().onAuthStateChanged(user => {
-        if (user) {
+    firebase.auth().onAuthStateChanged(user => {        
+        if (user) {            
+            if (lisner) {
+                lisner.off('value');
+            }
+            // 알림 수신 켜기
+            lisner = firebase.database().ref(`myChat/alarm/${user.uid}`);
+            lisner.on('value', snap => {
+                let value = snap.val(), total = 0;
+                if (value) {
+                    for (let i in value) {
+                        total += value[i];
+                    }
+                    value.total = total
+
+                    store.commit('ALARM_ON', value)
+                } else {
+                    store.commit('ALARM_ON', {
+                        item: null,
+                        total: 0
+                    })
+                }
+            })
+            
             if (!store.state.auth) {
                 firebase.database().ref(`myChat/users/${user.uid}`).once('value').then(result => {
                     store.commit('SESSION_AUTH', result.val())
-
                     if (to.name === 'login') {
                         // 홈으로 이동
                         next('/member')

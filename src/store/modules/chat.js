@@ -4,7 +4,9 @@ import { put, call } from "vuex-saga";
 import ROOT, { CHAT } from '@/store/namespace'
 import { yyyymm, urlExp, urlify } from '@/common/util'
 
-let roomListOn, messageOn;
+let roomListOn, 
+    messageOn,
+    chatDateKey;
 
 let state = {
   roomList: null,
@@ -84,7 +86,7 @@ const actions = {
   /*
     @date client 오늘 날짜 { String }
    */
-  *GET_MESSAGE() {    
+  *GET_MESSAGE() {
       if (messageOn) {
         messageOn.off('value')
       }
@@ -96,6 +98,8 @@ const actions = {
             let myStorage = {},
                 data = arguments[1],
                 chatDate = this.state.chat.chatDate;
+            // 알람갱신
+            firebase.database().ref(`myChat/alarm/${this.state.auth.uid}/${data.key}`).set(0)
                 
             // 머지하기 위해
             myStorage = JSON.parse(localStorage.getItem('myChatMessage'));
@@ -121,22 +125,42 @@ const actions = {
               }])
             }
 
-            messageOn = firebase.database().ref(`myChat/room/${data.key}/item`)            
+            messageOn = firebase.database().ref(`myChat/room/${data.key}/item`)
             messageOn.on('value', snap => {
-                 if (snap.val()) {
-                   if (chatDate === data.today) {
-                      myStorage[data.key][data.today] = snap.val();
-                   }
+                let result = snap.val();
+                 if (result) {
+                    if (chatDate === data.today) {
+                        myStorage[data.key][data.today] = result;
+                    }
+
+                    for(let key in result) {
+                      if (result[key].unread !== undefined) {
+                        if (result[key].unread[this.state.auth.uid]) {                        
+                          firebase.database().ref(`myChat/room/${data.key}/item/${key}/unread/${this.state.auth.uid}`).set(0)
+                        }
+                      }
+                    }
                     
                     localStorage.setItem('myChatMessage', JSON.stringify(myStorage));
-                    this.commit(CHAT.GET_MESSAGE, snap.val())
+                    this.commit(CHAT.GET_MESSAGE, result)
                     this.commit(ROOT.GET_MESSAGE_REQ_SUCCESS)
                 } else {
                     this.commit(ROOT.GET_MESSAGE_REQ_FAIL)
                 }
             })
+
+            // 입장상태
+            firebase.database().ref(`myChat/room/${data.key}/isLogin/${this.state.auth.uid}`).set(1)
         })
       })
+  },
+  *ROOMOUT(){
+    yield call(() => {
+      return new Promise(() => {
+          // 방나감
+          firebase.database().ref(`myChat/room/${arguments[1]}/isLogin/${this.state.auth.uid}`).set(0)
+      })
+    })
   },
   *GET_OLD_MESSAGE() {        
       yield put(ROOT.GET_OLD_MESSAGE_REQ_WAIT)
@@ -166,7 +190,8 @@ const actions = {
       let { type, write, today, key, text, path } = arguments[1],
           msgData =  { type, text, write },
           chatMember = this.state.chat.chatMember,
-          chatDate = this.state.chat.chatDate;
+          chatDate = this.state.chat.chatDate,
+          msgKey = '';
           
       // 전송할때마다 시간 체크
       today = new Date();
@@ -185,25 +210,75 @@ const actions = {
       // 날짜가 변경될 때 chatDate 서버기록 날짜
       if (chatDate !== today) {
         let oobj = {},
-            tempKey = firebase.database().ref('myChat/room').push(),
+            msgKey = firebase.database().ref('myChat/room').push(),
             noti = [{
               text: today,
               type: 3,
               write: 'admin'
             }];
         
-        tempKey = tempKey.getKey()  
-        oobj[tempKey] = msgData
+        msgKey = msgKey.getKey()  
+        oobj[msgKey] = msgData
 
         firebase.database().ref(`myChat/room/${key}/date`).set(today)        
         firebase.database().ref(`myChat/room/${key}/item`).set({ ...noti, ...oobj })
       } else {
-        firebase.database().ref(`myChat/room/${key}/item`).push(msgData)
+        msgKey = firebase.database().ref(`myChat/room/${key}/item`).push(msgData);        
       }
-      
-      for (let i = 0, size = chatMember.length; i < size; i += 1) {
-        firebase.database().ref(`myChat/list/${chatMember[i]}/${key}/text`).set(text)
+
+      async function setAlarm(recive) {
+        let { myuid, chatMember, key, text } = recive, temp = {};
+
+        for (let i = 0, size = chatMember.length; i < size; i += 1) {
+          // 챗리스트 한줄 갱신
+          firebase.database().ref(`myChat/list/${chatMember[i]}/${key}/text`).set(text)
+          
+          if (myuid !== chatMember[i]) {
+            let isEnjoy = await firebase.database().ref(`myChat/room/${key}/isLogin/${chatMember[i]}`).once('value').then(res => {
+              return res.val()
+            });
+            // 현재 접속하지 않을때
+            if (isEnjoy !== 1) {
+              temp[chatMember[i]] = 1;
+              let getAlarmCnt = await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).once('value').then(res => {
+                return res.val() || 0
+              })
+              await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).set(getAlarmCnt +1)
+            }
+          }          
+        }
+        
+        firebase.database().ref(`myChat/room/${key}/item/${msgKey.key}/unread`).update(temp)
       }
+      let recive = {
+        myuid: this.state.auth.uid,
+        chatMember: chatMember,
+        key: key,
+        text: text
+      }
+      setAlarm(recive)
+      // for (let i = 0, size = chatMember.length; i < size; i += 1) {
+      //   // 챗리스트 한줄 갱신
+      //   firebase.database().ref(`myChat/list/${chatMember[i]}/${key}/text`).set(text)
+      //   // 상대방이 챗팅방에 없으면 알림으로 표시
+      //   if (this.state.auth.uid !== chatMember[i]) {
+      //       async function setAlarm() {
+      //         let isEnjoy = await firebase.database().ref(`myChat/room/${key}/isLogin/${chatMember[i]}`).once('value').then(res => {
+      //             return res.val()
+      //         });
+      //         // 현재 접속하지 않을때
+      //         if (isEnjoy === 0) {
+      //           let getAlarmCnt = await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).once('value').then(res => {
+      //             return res.val() || 0
+      //           })
+      //           await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).set(getAlarmCnt +1)                
+      //         }
+
+      //         return true;
+      //       }
+      //       return setAlarm();
+      //   }
+      // }
 
       yield put(ROOT.SEND_MESSAGE_REQ_SUCCESS);
   },
@@ -240,10 +315,14 @@ const actions = {
   },
   *GET_CHAT_DATE() {
     let data = arguments[1];
+    if (chatDateKey) {
+      chatDateKey.off('value');
+    }
 
     return yield call(() => {
       return new Promise(resolve => {
-        firebase.database().ref(`myChat/room/${data.key}/date`).on('value', res => {
+        chatDateKey = firebase.database().ref(`myChat/room/${data.key}/date`)
+        chatDateKey.on('value', res => {
           this.commit(CHAT.GET_CHAT_DATE, res.val())
           resolve(true)
         })

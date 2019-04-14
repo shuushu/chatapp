@@ -34,6 +34,9 @@ export default {
   [ROOT.DEVICE_HEIGHT]: (state, data) => {    
     state.height = data;
   },
+  [ROOT.ALARM_ON]: (state, data) => {    
+    state.alarm = data;
+  },
   [ROOT.POPUP_ALERT]: (state, message) => {
     state.popupAlert = {
       isShow: true,

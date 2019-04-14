@@ -35,8 +35,11 @@
               <Talkbox :class="isWrite(msg.write)">
                 <div class="addfile-image" v-if="msg.type === 1"><img :src="msg.path" alt=""></div>
                 <span v-if="msg.vhtml" v-html="msg.text"></span>
-                <span v-else>{{ msg.text }}</span>
+                <span v-else>{{ msg.text }}</span>                
               </Talkbox>
+              <span v-if="msg.unread">
+                {{ sunUnread(msg.unread) }}      
+              </span>
           </div>
         </div>
     </div>
@@ -67,6 +70,7 @@
     },
     data () {
       return {
+        roomkey: null,
         scrollFlag: false
       }
     },
@@ -86,15 +90,17 @@
     },
     watch: {
       message () {
-        this.scrollToEnd()
+        //this.scrollToEnd()
       }
     },
     destroyed() {
       EventBus.$off('sendMessage')
+      this.$run(CHAT.ROOMOUT, this.roomkey)
     },
     created () {
+      this.roomkey = this.$route.params.id
       let data = {
-        key: this.$route.params.id,
+        key: this.roomkey,
         today: yyyymm(new Date())
       };      
 
@@ -127,6 +133,15 @@
         }      
     },
     methods: {
+        sunUnread(data) {
+          let cnt = 0;
+          for (let item in data) {
+            cnt += data[item]
+          }
+          if (cnt > 0) {
+            return cnt
+          }
+        },
         scrollToEnd(init) {
           let container = this.$el.querySelector('.message-wrap'),
               html = document.querySelector('html'),
@@ -137,7 +152,9 @@
           if (current || init) {
             html.scrollTop = container.scrollHeight;
             body.scrollTop = container.scrollHeight;
-          }        
+          }
+          
+          return current;
         },
     
         historyBack(){

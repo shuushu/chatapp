@@ -6,10 +6,18 @@
             <md-icon>arrow_back</md-icon>
           </md-button>
         </div>
-        <md-button class="md-accent" @click="memberJoin">
-          <md-icon>people</md-icon> 
-          다른 멤버 초대
-        </md-button>          
+
+        <div class="md-toolbar-section-end">
+          <md-badge v-if="alarm > 0" :md-content="alarm">
+            <md-button class="md-icon-button">
+              <md-icon>notifications</md-icon>
+            </md-button>
+          </md-badge>
+          <md-button class="md-accent" @click="memberJoin">
+            <md-icon>people</md-icon> 
+            다른 멤버 초대
+          </md-button>
+        </div>       
       </div>
     </md-toolbar>
 </template>
@@ -21,6 +29,10 @@
       selectedEmployee: 'dsadasd'      
     }),
     props: {
+      alarm: {
+        default: 0,
+        type: Number
+      },      
       name: {
         type: String
       }

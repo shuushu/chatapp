@@ -134,5 +134,5 @@ export default {
   },
   *getDeviceHeight() {       
     yield put(ROOT.DEVICE_HEIGHT, arguments[1])
-  }  
+  }
 }

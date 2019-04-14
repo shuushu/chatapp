@@ -2,8 +2,8 @@
   <div id='app' :class="classes.isOnepage">
       <header id="header" v-if="!this.onepage">
         <transition name="head">
-          <MsgHeader v-if="this.$route.name ==='message'" />
-          <Header :name="this.$route.name" v-else />
+          <MsgHeader v-if="this.$route.name ==='message'" :alarm="alarm.total" />
+          <Header :alarm="alarm.total" :name="this.$route.name" v-else />
         </transition>
       </header>
       
@@ -62,6 +62,7 @@ export default {
       }
     },
     ...mapState({
+      alarm: state => state.alarm,
       popupAlert: state => state.popupAlert,
       popupConfirm: state => state.popupConfirm
     })

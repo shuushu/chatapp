@@ -149,8 +149,8 @@
             id: this.form.id,
             pw: this.form.pw
           }).then(res => {
-            if (res.state) {
-              this.$router.push('/member')
+            if (res.state) {              
+              this.$router.push('/member')              
             } else {
               this.clearForm();
               res.message = ERROR[res.code];
