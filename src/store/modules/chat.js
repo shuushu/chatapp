@@ -168,6 +168,8 @@ const actions = {
       return new Promise(() => {
           // 방나감
           firebase.database().ref(`myChat/room/${arguments[1]}/isLogin/${this.state.auth.uid}`).set(0)
+          // 메세지 리스너 해제
+          messageOn.off('value')
       })
     })
   },
