@@ -1,10 +1,6 @@
 <template>
   <div id="message"  class="page" :class="{ inviteWrap:invite }">
-
-    <div v-if="isLoading" class="wrap-center">
-      <md-progress-spinner :md-diameter="50" md-mode="indeterminate"></md-progress-spinner>
-    </div>
-    <div class="message-wrap" :style="`min-height:${deviceHeight-80}px`" v-else>
+    <div class="message-wrap" :style="`min-height:${deviceHeight-80}px`">
         <!-- 이전 메세지 -->
         <div class="old-items" v-for="(date, pk) in oldMsg" :key="`old-${pk}`">
           <div class="talk-items" :class="isWrite(item.write)" v-for="(item, key) in date" :key="`old-item-${key}`">              
@@ -24,7 +20,7 @@
           </div>        
         </div>
         <!-- 신규 메세지 -->        
-        <div class="talk-items" :class="isWrite(msg.write)" v-for="(msg, pk) in message" :key="pk">
+        <div class="talk-items" :class="isWrite(msg.write)" v-for="(msg, pk, i) in message" :key="pk">
           <div class="img-wrap" v-if="isWrite(msg.write) != 'notice'">
             <md-avatar>            
               <img :src="mappingAvatar(msg.write)" :alt="mappingUserName(msg.write)">
@@ -39,6 +35,7 @@
                 <span v-if="msg.unread" class="unread">
                   {{ sunUnread(msg.unread) }} 
                 </span>
+                <md-progress-spinner v-if="sendWaitCheck(i)"  :md-diameter="10" class="md-accent msgLoading" :md-stroke="1" md-mode="indeterminate"></md-progress-spinner>
               </Talkbox>
           </div>
         </div>
@@ -53,7 +50,7 @@
     </transition>
 
     <transition name="msgAlarm">
-      <div class="alarmLayer" v-if="tipFlag === true && latest !== false">
+      <div class="alarmLayer" v-if="tipFlag === true && latest !== false" @click="scrollToEnd('pop');">
         <div class="wrap">
           <md-avatar>            
             <img :src="member[latest.write].photoURL" :alt="member[latest.write].displayName" />
@@ -85,7 +82,8 @@ import { setTimeout } from 'timers';
       return {
         tipFlag: false,
         roomkey: null,
-        scrollFlag: false
+        scrollFlag: false,
+        sendWait: false
       }
     },
     computed: {
@@ -93,7 +91,6 @@ import { setTimeout } from 'timers';
           latest: state => state.chat.latest,
           invite: state => state.invite,
           auth: state => state.auth,
-          isLoading: state => state.ready,
           message: state => state.chat.message,
           oldMsg: state => state.chat.oldMsg,
           member: state => state.member.memberList,
@@ -106,14 +103,14 @@ import { setTimeout } from 'timers';
     watch: { 
       message() {
         setTimeout(() => {
-          if (this.latest !== false && this.auth.uid !== this.latest.writer) {
+          if (this.latest !== false && this.auth.uid !== this.latest.write) {
             let currentView = this.scrollToEnd();          
             // 이전 메세지를 보고 있을 때
             if (currentView === false) {
               this.tipFlag = true
               setTimeout(() => {
                 this.tipFlag = false
-              }, 2000)
+              }, 3000)
             }
           } 
         }, 300)       
@@ -161,6 +158,14 @@ import { setTimeout } from 'timers';
         }      
     },
     methods: {
+        sendWaitCheck(idx) {
+          // 메세지가 wait상태일때 마지막 메세지 wait처리
+          if (this.sendWait) {
+            let msgSize = Object.keys(this.message).length
+
+            return idx === msgSize - 1
+          }                  
+        },
         sunUnread(data) {          
           let cnt = 0;
           for (let item in data) {
@@ -180,6 +185,9 @@ import { setTimeout } from 'timers';
           if (current || init) {
             html.scrollTop = container.scrollHeight;
             body.scrollTop = container.scrollHeight;
+            if (init === 'pop') {
+              this.tipFlag = false
+            }
           }
           
           return current;
@@ -189,6 +197,9 @@ import { setTimeout } from 'timers';
           this.$router.go(-1)
         },
         sendMsg(data) {
+          // 메세지 수신대기 상태
+          this.sendWait = true;
+
           data.key = this.$route.params.id
           data.write = this.auth.uid            
           new Promise(resolve => {
@@ -197,21 +208,32 @@ import { setTimeout } from 'timers';
                 this.$run(CHAT.ADD_IMAGE, data.addFile).then(path => {
                   data.path = path;
                   data.type = 1;
-                  this.$run(CHAT.SEND_MESSAGE, data)
-                  resolve(true)
+                  this.$run(CHAT.SEND_MESSAGE, data).then(result => {
+                    if (result) {
+                      resolve(true)
+                    } else {
+                      resolve(false)
+                    }
+                  })
                 })
-              } else {
-                this.$run(CHAT.SEND_MESSAGE, data)
-                resolve(true)
+              } else {                
+                this.$run(CHAT.SEND_MESSAGE, data).then(result => {
+                  if (result) {
+                    resolve(true)
+                  } else {
+                    resolve(false)
+                  }
+                })                
               }
-          }).then(res => {            
+          }).then(res => {
+            this.sendWait = false;          
             // 프로세스가 순차처리 되었을때
             if (res) {
               EventBus.$emit('sendResult', true) 
               // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.            
-              this.scrollToEnd(true)
+              this.scrollToEnd(true);
             } else {
-              this.$run('dialogAlert', { message: 'Error' })
+              this.$run('dialogAlert', { message: '메세지 전송중 에러 발생' })
             }      
           })
         },
@@ -274,13 +296,30 @@ import { setTimeout } from 'timers';
   > div{
     padding: 0;
   }
-  .left .unread{
-    right: 0;
-    margin-right: -14px;
+  .left{
+    .unread{
+      right: 0;
+      margin-right: -14px;
+    }
+    .msgLoading{
+      right: 0;
+      margin-right: -17px;
+    }
   }
-  .right .unread{
-    left: 0;
-    margin-left: -14px;
+  
+  .right{
+    .unread{
+      left: 0;
+      margin-left: -14px;
+    }
+    .msgLoading{
+      left: 0;
+      margin-left: -17px;
+    }    
+  }
+  .msgLoading{
+    position: absolute;
+    top: 5px;
   }
   .unread{    
     position: absolute;    
@@ -385,7 +424,7 @@ import { setTimeout } from 'timers';
     bottom: 100px;
     width: 100%;
     text-align: center;
-    transition: all 600ms;
+    transition: all 300ms;
     .wrap{
       position: relative;
       display: inline-block;
@@ -427,5 +466,10 @@ import { setTimeout } from 'timers';
 .popmember-leave-active{
   transform: translate3d(100%, 0, 0);
 }
-
+.msgAlarm-leave-active{
+  transform: translate3d(0, 80px, 0);
+}
+.msgAlarm-enter-active{
+  transform: translate3d(0, 80px, 0);
+}
 </style>

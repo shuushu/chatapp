@@ -60,7 +60,9 @@ import { yyyymm } from '@/common/util'
           this.addFile = '';
           this.thumb = '';          
         },
-        sendMsg() {
+        sendMsg(event) {
+          event.preventDefault();
+          
           let data = {
             text: this.userWrite,
             today: yyyymm(new Date()),
@@ -78,7 +80,7 @@ import { yyyymm } from '@/common/util'
               return true;
           }
           // 버튼 비활성화 flag
-          this.sendLoad = true
+          this.sendLoad = true          
           EventBus.$emit('sendMessage', data)
         },
         sendcomplete() {

@@ -5,7 +5,7 @@ let obj = {};
 
 TYPE.forEach(value => {
   obj = Object.assign(obj, {
-    [ROOT[`${value}_REQ_WAIT`]]: (state) => {
+    [ROOT[`${value}_REQ_WAIT`]]: (state) => {      
         state.ready = true;
     },
     [`${value}_REQ_SUCCESS`]: (state) => {
