@@ -31,9 +31,6 @@ export default {
   [ROOT.SET_INVITE]: (state, data) => {
     state.invite = data;
   },
-  [ROOT.DEVICE_HEIGHT]: (state, data) => {    
-    state.height = data;
-  },
   [ROOT.ALARM_ON]: (state, data) => {    
     state.alarm = data;
   },

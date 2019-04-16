@@ -69,7 +69,6 @@ export default {
   },
   watch: {
     $route (to, from) {
-      this.$run('getDeviceHeight', window.innerHeight)
       this.routeUpdate(to, from)
     }
   },

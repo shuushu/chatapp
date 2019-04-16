@@ -48,8 +48,8 @@ const actions = {
   /*
     @members 유저 UID { Array }
   */
-  *GET_ROOMLIST(store, members) {
-    if (store.state.roomList) {
+  *GET_ROOMLIST() {
+    if (this.state.roomList) {
       return true
     }
     
@@ -57,7 +57,8 @@ const actions = {
 
     yield call(() => {
       return new Promise(() => {
-        const UID = store.rootState.auth.uid;
+        const UID = this.state.auth.uid,
+              members = this.state.member.memberList;
 
         roomListOn = firebase.database().ref(`myChat/list/${UID}`);
         roomListOn.on('value', (res) => {
@@ -66,7 +67,7 @@ const actions = {
           if (result) {
               /*
                 @params 룸리스에 조인됨 멤버들 { Array }
-              */              
+              */                           
               let mappingToMember = (joinMember) => { 
                   let obj = {};                  
                   for (let i = 0, size = joinMember.length; i < size; i += 1) {

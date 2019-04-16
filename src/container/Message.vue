@@ -179,7 +179,7 @@ import { setTimeout } from 'timers';
           let container = this.$el.querySelector('.message-wrap'),
               html = document.querySelector('html'),
               body = document.querySelector('body'),
-              deviceHeight = this.deviceHeight,
+              deviceHeight = window.innerHeight,
               current = isCurrentView(deviceHeight, container);
 
           if (current || init) {

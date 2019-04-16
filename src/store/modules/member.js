@@ -29,7 +29,7 @@ const getters = {
 const actions = {
   *GET_MEMBER() {
     if (this.state.member.memberList) {
-       return false;
+       return true;
     }
 
     yield put(ROOT.GET_MEMBER_REQ_WAIT)

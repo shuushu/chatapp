@@ -131,8 +131,5 @@ export default {
   *invite() {
     let value = arguments[1] === undefined ? !this.state.invite : arguments[1];
     yield put(ROOT.SET_INVITE, value)
-  },
-  *getDeviceHeight() {       
-    yield put(ROOT.DEVICE_HEIGHT, arguments[1])
-  }
+  }  
 }
