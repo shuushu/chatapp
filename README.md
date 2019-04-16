@@ -2,11 +2,14 @@
 vue, firebase를 이용해 간단한 채팅 웹앱 만들기
 [DEMO](http://gnscjfdl.cafe24.com/chat)
 
+- 기능 추가버젼 [DEMO](http://gnscjfdl.cafe24.com/chat2)
+
+
 
 ## Features
 - vue, vuex, vue-router, vuex-saga, node-sass
 - [**firebase**](#documentation): 데이터 저장, Auth 및 socket.io 통신
-- [**vue**](https://vuematerial.io/getting-started/): 프로토타입 UI
+- [**Vue Material**](https://vuematerial.io/getting-started/): 프로토타입 UI
 * storybook: 채팅 말풍선 컴포넌트만 테스트, 그외 vuematerial 사용
 
 
