@@ -15,7 +15,7 @@
 
         <md-field>
           <label>입력해주세요</label>
-          <md-input v-model="userWrite"></md-input>
+          <md-input v-model="userWrite" @keyup.enter="sendMsg"></md-input>
         </md-field>
 
         <md-button class="send md-raised md-accent" :disabled="sendLoad" @click="sendMsg">

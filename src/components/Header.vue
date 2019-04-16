@@ -11,7 +11,7 @@
 
         <div class="md-toolbar-section-end">
           <md-badge v-if="alarm > 0" :md-content="alarm">
-            <md-button class="md-icon-button">
+            <md-button  @click="goList" class="md-icon-button">
               <md-icon>notifications</md-icon>
             </md-button>
           </md-badge>
@@ -58,6 +58,9 @@
             message: res ? '로그아웃 되었습니다' : res.code
           })
         })
+      },
+      goList() {
+        this.$router.push('/list')
       }
     }
   }

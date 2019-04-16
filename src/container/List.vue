@@ -60,9 +60,17 @@
             // 초대창 닫기
             this.$run('invite', false) 
             // 유저 정보를 먼저 받는다
-            this.$run(MEMBER.GET_MEMBER).then(() => {
+            if (this.member) {
               this.$run(CHAT.GET_ROOMLIST, this.member)
-            })
+            } else {
+              // 현재 방 목록에 참여된 멤버를 확인하기 위해(닉네임 및 정보), 
+              // 멤버를 목록을 가져온 후 실행
+              this.$run(MEMBER.GET_MEMBER).then(res => {
+                if (res) {                  
+                  this.$run(CHAT.GET_ROOMLIST, res)
+                }                
+              })
+            }
         },
         methods: {          
             goToMessage(key) {

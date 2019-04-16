@@ -64,17 +64,21 @@ const actions = {
           let result = res.val();
 
           if (result) {
-              // join멤버 맵핑
+              /*
+                @params 룸리스에 조인됨 멤버들 { Array }
+              */              
               let mappingToMember = (joinMember) => { 
                   let obj = {};                  
                   for (let i = 0, size = joinMember.length; i < size; i += 1) {
                       let key = joinMember[i];
-                      
-                      obj[key] = members[key]                      
+                      // 멤버 정보가 담긴 객체 만들기
+                      if (members[key]) {
+                        obj[key] = members[key]
+                      }
                   }
                   return obj                  
               }
-
+              // 내 방목록 리스트에 join된 멤버의 정보를 맵핑
               for (let key in result) {
                 result[key].join = mappingToMember(result[key].join)
               }        

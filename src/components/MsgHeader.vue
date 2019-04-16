@@ -9,7 +9,7 @@
 
         <div class="md-toolbar-section-end">
           <md-badge v-if="alarm > 0" :md-content="alarm">
-            <md-button class="md-icon-button">
+            <md-button @click="goList" class="md-icon-button">
               <md-icon>notifications</md-icon>
             </md-button>
           </md-badge>
@@ -43,6 +43,9 @@
       },
       memberJoin() { 
         this.$run('invite')
+      },
+      goList() {
+        this.$router.push('/list')
       }
     }
   }

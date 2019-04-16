@@ -2,11 +2,13 @@
 vue, firebase를 이용해 간단한 채팅 웹앱 만들기
 [DEMO](http://gnscjfdl.cafe24.com/chat)
 
+- [기능 추가](https://github.com/shuushu/chatapp/tree/v2#v2-branch) [DEMO](http://gnscjfdl.cafe24.com/chat2)
+
 
 ## Features
 - vue, vuex, vue-router, vuex-saga, node-sass
 - [**firebase**](#documentation): 데이터 저장, Auth 및 socket.io 통신
-- [**vue**](https://vuematerial.io/getting-started/): 프로토타입 UI
+- [**Vue Material**](https://vuematerial.io/getting-started/): 프로토타입 UI
 * storybook: 채팅 말풍선 컴포넌트만 테스트, 그외 vuematerial 사용
 
 
@@ -87,3 +89,7 @@ npm run storybook
 
 
 3. 이전 메세지 링크타입 및 이미지 타입 구현
+
+4. 입력폼에서 엔터입력시 메세지 push
+
+5. 신규계정 생성 후 접속된 멤버와 챗팅시 챗리스트화면이 안나오는 이슈 수정

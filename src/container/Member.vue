@@ -163,7 +163,7 @@
     }
     width: 95%;
     display: block;
-    margin: 20px auto 0;
+    margin: 20px auto;
     font-size: 16px;
     line-height: 24px;
     font-weight: normal;
