@@ -25,9 +25,6 @@
 <script>
   export default {
     name: 'MsgHeader',
-    data: () => ({
-      selectedEmployee: 'dsadasd'      
-    }),
     props: {
       alarm: {
         default: 0,
@@ -42,7 +39,7 @@
         this.$router.go(-1)
       },
       memberJoin() { 
-        this.$run('invite')
+        this.$store.dispatch('invite')
       },
       goList() {
         this.$router.push('/list')

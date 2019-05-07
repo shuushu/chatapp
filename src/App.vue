@@ -62,6 +62,7 @@ export default {
       }
     },
     ...mapState({
+      auth: state => state.auth,
       alarm: state => state.alarm,
       popupAlert: state => state.popupAlert,
       popupConfirm: state => state.popupConfirm
@@ -94,6 +95,9 @@ export default {
 </script>
 
 <style lang="scss">
+body{
+  background-color: #fff;
+}
 #app{    
   //position: absolute;
   width: 100%;

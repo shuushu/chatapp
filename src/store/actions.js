@@ -1,135 +1,132 @@
 import firebase from 'firebase'
-import { put, call } from "vuex-saga"
-import ROOT from './namespace'
+import ROOT, { ERROR } from './namespace'
 
+let listner;
 export default {
-  *loginEmail(store, { id, pw }) {
-    yield put(ROOT.LOGIN_EMAIL_REQ_WAIT)
+  loginEmail({ commit, dispatch }, payload) {
+    let { id, pw } = payload;
+    commit(ROOT.LOGIN_EMAIL_REQ_WAIT)
 
-    return yield call(() => {
-      return new Promise((resolve) => {
-        firebase.auth().signInWithEmailAndPassword(id, pw)
-            .catch(error => {
-              resolve({ ...error, state: false })
-              this.commit(ROOT.LOGIN_EMAIL_REQ_FAIL)
-            })
-            .then(result => {
-              if (result) {
-                resolve({ state: true });
-                this.commit(ROOT.LOGIN_EMAIL_REQ_SUCCESS)
-              }
-            })
-        })
+    firebase.auth().signInWithEmailAndPassword(id, pw).catch(error => {
+      commit(ROOT.LOGIN_EMAIL_REQ_FAIL)
+      dispatch('dialogAlert', {
+        message: ERROR[error.code]
+      })      
+    })
+    .then(result => {
+      let { displayName, uid, email, photoURL } = result.user;
+      photoURL = 'http://placehold.it/60x60';
+      displayName = displayName || email;
+
+      firebase.database().ref('myChat/users').child(uid).set({
+        displayName, uid, email, photoURL
+      });
+
+      commit(ROOT.LOGIN_EMAIL_REQ_SUCCESS)
     })
   },
-  *createMailID(store, { id, pw, name }) {
-    yield put(ROOT.CREATE_AUTH_REQ_WAIT)
+  createMailID({ commit, dispatch }, payload) {
+    let { id, pw, name } = payload;
+    commit(ROOT.CREATE_AUTH_REQ_WAIT)
 
-    return yield call(() => {
-      return new Promise((resolve) => {
-        firebase.auth().createUserWithEmailAndPassword(id, pw)
-          .catch(error => {
-            this.commit(ROOT.CREATE_AUTH_REQ_FAIL);
-            resolve({ ...error, state: false })
-          })
-          .then(result => {
-            if (result) {
-              let { uid } = result.user,
-                  userData = {};
-
-              userData[uid] = {
-                email: id,
-                displayName: name,
-                photoURL: 'http://placehold.it/60x60',
-                uid: uid
-              };
-
-              firebase.database().ref('myChat/users').update(userData);
-              this.commit(ROOT.CREATE_AUTH_REQ_SUCCESS);
-              resolve({ state: true });
-            }
-          })
+    firebase.auth().createUserWithEmailAndPassword(id, pw).catch(error => {
+        commit(ROOT.CREATE_AUTH_REQ_FAIL)
+        dispatch('dialogAlert', {
+          message: ERROR[error.code]
+        }) 
       })
-    })
-  },
-  *loginGoogle () {
-    yield put(ROOT.LOGIN_GOOGLE_AUTH_REQ_WAIT)
+      .then(result => {
+        if (result) {
+          let { uid } = result.user,
+              userData = {};
 
-    return yield call(() => {
-      return new Promise(resolve => {
-        let provider = new firebase.auth.GoogleAuthProvider();
+          userData[uid] = {
+            email: id,
+            displayName: name,
+            photoURL: 'http://placehold.it/60x60',
+            uid: uid
+          };
 
-        provider.addScope('https://www.googleapis.com/auth/contacts.readonly');
-
-        firebase.auth().signInWithPopup(provider).then(result => {
-          if (result) {
-            let { displayName, uid, email, photoURL } = result.user;
-
-            resolve(Object.assign({
-              displayName,
-              uid,
-              email,
-              photoURL
-            }, { state: true }))
-
-            firebase.database().ref('myChat/users').child(uid).set({
-              displayName, uid, email, photoURL
-            });
-
-            this.commit(ROOT.LOGIN_GOOGLE_AUTH_REQ_SUCCESS)
-          }
-        }).catch(error => {
-          resolve({ ...error, state: false })
-          this.commit(ROOT.LOGIN_GOOGLE_AUTH_REQ_FAIL)
-        })
-      })
-    });
-  },
-  *getSession(store) {
-    let { auth } = store.state;
-
-    return yield call(() => {
-      return new Promise(resolve => {
-        if (auth === null) {
-          // 로그인 인증상태
-          firebase.auth().onAuthStateChanged(user => {
-            if (user) {
-              firebase.database().ref(`myChat/users/${user.uid}`).once('value').then(result => {
-                store.commit(ROOT.SESSION_AUTH, result.val())
-                resolve(result.val())
-              })
-            } else {
-              store.commit(ROOT.SESSION_OUT, null)
-            }
-          })
-        } else {
-          resolve(auth)
+          firebase.database().ref('myChat/users').update(userData);
+          commit(ROOT.CREATE_AUTH_REQ_SUCCESS);
         }
       })
-    })
   },
-  *logout() {
-    return yield call(() => {
-      return new Promise(resolve => {
-        firebase.auth().signOut().then(() => {
-          resolve(true)
-          setTimeout(() => {
-            this.commit(ROOT.SET_AUTH, null)
-          }, 500)          
-        }).catch(error => {          
-          resolve(false, error)
+  loginGoogle ({ commit, dispatch }) {
+    commit(ROOT.LOGIN_GOOGLE_AUTH_REQ_WAIT)
+    let provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/contacts.readonly');
+    
+    firebase.auth().signInWithPopup(provider).then(result => {
+      if (result) {
+        let { displayName, uid, email, photoURL } = result.user;
+
+        firebase.database().ref('myChat/users').child(uid).set({
+          displayName, uid, email, photoURL
         });
-      })
+
+        commit(ROOT.LOGIN_GOOGLE_AUTH_REQ_SUCCESS)
+      }
+    }).catch(error => {        
+      commit(ROOT.LOGIN_GOOGLE_AUTH_REQ_FAIL)
+      dispatch('dialogAlert', {
+        message: ERROR[error.code]
+      })        
     })
   },
-  *dialogAlert() {
-    yield put(ROOT.POPUP_ALERT, arguments[1])
+  dialogAlert ({ commit }, payload) {
+    commit(ROOT.POPUP_ALERT, payload)
   },
-  *dialogConfirm() {
-    yield put(ROOT.POPUP_CONFIRM, arguments[1])
+  logout({ dispatch }) {
+      return new Promise(resolve => {
+          firebase.auth().signOut().then(() => {
+            // state 리셋
+            dispatch('dialogAlert', {
+              message: '로그아웃 되었습니다'
+            })
+            
+            resolve(true)    
+          }).catch(error => {          
+            console.log(error)
+            dispatch('dialogAlert', {
+              message: ERROR[error.code]
+            })        
+            resolve(false)
+          });
+      })
   },
-  *invite() {
-    let value = arguments[1] === undefined ? !this.state.invite : arguments[1];
-    yield put(ROOT.SET_INVITE, value)
+  dialogConfirm({ commit }, payload) {
+    commit(ROOT.POPUP_CONFIRM, payload)
+  },
+  getAlarm({ commit, dispatch }) {
+      if (listner) {
+        listner.off('value')
+      }
+      // 알림 수신 켜기
+      listner = firebase.database().ref(`myChat/alarm/${this.state.auth.uid}`)
+      listner.on('value', snap => {
+        let value = snap.val(), total = 0;
+        if (value) {
+            for (let i in value) {
+                total += value[i];
+            }
+            value.total = total
+
+            commit(ROOT.ALARM_ON, value)
+        }
+    })
+  },
+  getAlarmOFF({ commit }) {
+    if (listner) {
+      listner.off('value')
+    }
+    commit(ROOT.ALARM_ON, {
+      item: {},
+      total: 0
+    })
+  },
+  invite({ commit }, payload) {
+    let value = payload === undefined ? !this.state.invite : payload;
+    commit(ROOT.SET_INVITE, value)
   }  
 }

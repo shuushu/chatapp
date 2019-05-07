@@ -34,11 +34,11 @@
         <md-card-actions>
           <div v-if="isCreate">
             <md-button class="md-primary" @click.prevent="createEmail" :disabled="isLoading" >create</md-button>
-            <md-button class="md-primary" @click.prevent="isCreate = false" :disabled="isLoading" >cacel</md-button>
+            <md-button class="md-primary" @click.prevent="loginView" :disabled="isLoading" >cacel</md-button>
           </div>
           <div v-else>
             <md-button type="submit" class="md-primary" :disabled="isLoading">로그인</md-button>
-            <md-button class="md-primary" @click.prevent="googleLogin" :disabled="isLoading">구글 로그인</md-button>
+            <md-button class="md-primary" @click.prevent="loginGoogle" :disabled="isLoading">구글 로그인</md-button>
             <md-button class="md-primary" @click.prevent="isCreate = true" :disabled="isLoading" >계정 생성</md-button>
           </div>
         </md-card-actions>
@@ -54,8 +54,7 @@
     minLength,
     email
   } from 'vuelidate/lib/validators'
-  import { mapState } from 'vuex'
-  import { ERROR } from '@/store/namespace'
+  import { mapState, mapActions } from 'vuex'
   
   export default {
     name: 'login',
@@ -96,34 +95,17 @@
       return obj;
     },
     methods: {
+      ...mapActions([
+        'loginGoogle', 'loginEmail', 'createMailID'
+      ]),
       createEmail () {
         this.$v.$touch();
 
         if (!this.$v.$invalid) {
-          this.$run('createMailID',{
-            id: this.form.id,
-            pw: this.form.pw,
-            name: this.form.name
-          }).then(res => {
-            if (res.state) {
-              this.$router.push('/member');
-            } else {
-              this.clearForm();
-              res.message = ERROR[res.code];
-              this.$run('dialogAlert', res);
-            }
-          });
+          let { id, pw, name } = this.form
+
+          this.createMailID({ id, pw, name })        
         }
-      },
-      googleLogin () {
-        this.$run('loginGoogle').then(res => {
-          if (res.state) {
-            this.$router.push('/member');
-          } else {
-            res.message = ERROR[res.code];
-            this.$run('dialogAlert', res);
-          }
-        });
       },
       getValidationClass (fieldName) {
         const field = this.$v.form[fieldName];
@@ -134,29 +116,22 @@
           }
         }
       },
-      clearForm () {
+      clearForm() {
         this.$v.$reset();
         this.form.id = null;
         this.form.name = null;
         this.form.pw = null;
       },
-
-      login () {
+      loginView() {
+        this.clearForm();
+        this.isCreate = false;
+      },
+      login() {
+        let { id, pw } = this.form;
         this.$v.$touch();
 
         if (!this.$v.$invalid) {
-          this.$run('loginEmail', {
-            id: this.form.id,
-            pw: this.form.pw
-          }).then(res => {
-            if (res.state) {              
-              this.$router.push('/member')              
-            } else {
-              this.clearForm();
-              res.message = ERROR[res.code];
-              this.$run('dialogAlert', res)
-            }
-          })
+          this.loginEmail({ id, pw })
         }
       }
     }

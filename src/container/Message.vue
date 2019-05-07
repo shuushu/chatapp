@@ -1,6 +1,6 @@
 <template>
   <div id="message"  class="page" :class="{ inviteWrap:invite }">
-    <div class="message-wrap" :style="`min-height:${deviceHeight-80}px`">
+    <div class="message-wrap" :style="`min-height:${this.$route.params.h-80}px`">
         <!-- 이전 메세지 -->
         <div class="old-items" v-for="(date, pk) in oldMsg" :key="`old-${pk}`">
           <div class="talk-items" :class="isWrite(item.write)" v-for="(item, key) in date" :key="`old-item-${key}`">              
@@ -40,15 +40,15 @@
           </div>
         </div>
     </div>
-
+    <!-- 메세지 전송 후 로딩바 -->
     <div class="upload-progress" v-if="pgr > 0 && pgr < 100">
       <md-progress-spinner class="md-accent" md-mode="determinate" :md-value="pgr"></md-progress-spinner>
     </div>
-
+    <!-- 다른멤버초대 -->
     <transition name="popmember">
       <Member  :chatMember="chatMember" v-if="invite" />
     </transition>
-
+    <!-- 메세지토스트 -->
     <transition name="msgAlarm">
       <div class="alarmLayer" v-if="tipFlag === true && latest !== false" @click="scrollToEnd('pop');">
         <div class="wrap">
@@ -83,7 +83,8 @@ import { setTimeout } from 'timers';
         tipFlag: false,
         roomkey: null,
         scrollFlag: false,
-        sendWait: false
+        sendWait: false,
+        preview: null
       }
     },
     computed: {
@@ -96,8 +97,7 @@ import { setTimeout } from 'timers';
           member: state => state.member.memberList,
           chatMember: state => state.chat.chatMember,
           chatDate: state => state.chat.chatDate,
-          pgr: state => state.chat.progress,
-          deviceHeight: state => state.height
+          pgr: state => state.chat.progress
       })
     },
     watch: { 
@@ -118,7 +118,11 @@ import { setTimeout } from 'timers';
     },
     destroyed() {
       EventBus.$off('sendMessage')
-      this.$run(CHAT.ROOMOUT, this.roomkey)
+      EventBus.$off('imgPreview')
+      this.$store.dispatch('chat/SET_JOIN', {
+        type: 'OUT',
+        key: this.roomkey
+      })
       this.$run(CHAT.REMOVE_LATEST, this.roomkey)
     },
     created () {
@@ -127,12 +131,15 @@ import { setTimeout } from 'timers';
         key: this.roomkey,
         today: yyyymm(new Date())
       };      
-
       // 풋터메세지폼
       EventBus.$on('sendMessage', value => {        
         if (value) {
             this.sendMsg(value)
         }        
+      })
+      // 이미지 추가 프리뷰
+      EventBus.$on('imgPreview', path => {
+        this.preview = path
       })
 
       // [비정상 접근]새로 고침시 채팅에 속한 멤버 정보가 없으므로 리스트로 보낸다.
@@ -140,10 +147,13 @@ import { setTimeout } from 'timers';
         this.$router.push('/list')
       } else {
         this.$run(CHAT.SET_LATEST, data)
-        this.$run(CHAT.GET_CHAT_MEMBER, data)        
-        this.$run(CHAT.GET_CHAT_DATE, data).then(res => {
+        this.$store.dispatch('chat/SET_JOIN', {
+          type: 'IN',
+          key: data.key
+        })        
+        this.$store.dispatch(CHAT.GET_CHAT_DATE, data).then(res => {
           if (res) {
-              this.$run(CHAT.GET_MESSAGE, data)
+              this.$store.dispatch(CHAT.GET_MESSAGE, data)
               this.$run(CHAT.GET_OLD_MESSAGE, data)              
           }
         })
@@ -157,12 +167,19 @@ import { setTimeout } from 'timers';
           this.scrollFlag = true
         }      
     },
+    beforeRouteEnter (to, from, next) {
+      /* 
+        슬라이드 시 내용이 없을때 영역이 크롭 이슈가 발생(컨텐츠 영역의 높이 list영역보다 작기때문에)
+        따라서 dom에 마운트 되기전에 현재 영역의 높이를 지정한다.
+      */
+      to.params.h = window.innerHeight
+      next()
+    },
     methods: {
         sendWaitCheck(idx) {
           // 메세지가 wait상태일때 마지막 메세지 wait처리
           if (this.sendWait) {
             let msgSize = Object.keys(this.message).length
-
             return idx === msgSize - 1
           }                  
         },
@@ -196,35 +213,55 @@ import { setTimeout } from 'timers';
         historyBack(){
           this.$router.go(-1)
         },
-        sendMsg(data) {
+        async sendMsg(data) {
           // 메세지 수신대기 상태
           this.sendWait = true;
 
           data.key = this.$route.params.id
-          data.write = this.auth.uid            
+          data.write = this.auth.uid 
+          
+          // 이미지 첨부할때
+          if (data.addFile) {
+            data.path = this.preview;
+            data.type = 1;
+            EventBus.$emit('sendResult', true) 
+            // await this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile)
+          }
+          // 뷰로직
+          await this.$store.dispatch('chat/SEND_MESSAGE2', data).then(res => {                    
+              // 프로세스가 순차처리 되었을때
+              if (res) {
+                this.sendWait = false;
+                EventBus.$emit('sendResult', true) 
+                // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.
+                //this.scrollToEnd(true);
+              } else {
+                this.sendWait = 'wait';
+                this.$store.dispatch('dialogAlert', { message: '메세지 전송중 에러 발생' })
+              } 
+          })
+          
+          
+          return false;
+
           new Promise(resolve => {
               // 이미지 첨부할때
               if (data.addFile) {
-                this.$run(CHAT.ADD_IMAGE, data.addFile).then(path => {
-                  data.path = path;
-                  data.type = 1;
-                  this.$run(CHAT.SEND_MESSAGE, data).then(result => {
-                    if (result) {
-                      resolve(true)
-                    } else {
-                      resolve(false)
-                    }
-                  })
-                })
-              } else {                
-                this.$run(CHAT.SEND_MESSAGE, data).then(result => {
-                  if (result) {
-                    resolve(true)
-                  } else {
-                    resolve(false)
-                  }
-                })                
+                // await this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile).then(path => {
+                //   data.path = path;
+                //   data.type = 1;
+                // })
+              } else {
+                
+                // this.$store('chat/SEND_MESSAGE2', data).then(result => {
+                //   if (result) {
+                //     resolve(true)
+                //   } else {
+                //     resolve(false)
+                //   }
+                // })                
               }
+              this.$store.dispatch('chat/SEND_MESSAGE2', data)
           }).then(res => {
             this.sendWait = false;          
             // 프로세스가 순차처리 되었을때
@@ -264,18 +301,6 @@ import { setTimeout } from 'timers';
             return 'left'
           } else {
             return 'right'
-          }
-        },
-        handleChange(e) {
-          
-          if (e.target.value) {
-            let reader = new FileReader();
-            reader.readAsDataURL(e.target.files[0]);
-
-            reader.onload = () => {
-              this.thumb = reader.result
-            }
-            this.addFile = e.target.files[0];
           }
         },
         clear() {

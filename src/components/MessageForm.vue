@@ -52,6 +52,7 @@ import { yyyymm } from '@/common/util'
 
             reader.onload = () => {
               this.thumb = reader.result
+              EventBus.$emit('imgPreview', reader.result)
             }
             this.addFile = e.target.files[0];
           }

@@ -1,4 +1,5 @@
 import { TYPE } from '../common/config'
+import chat from './modules/chat';
 let ROOT = {};
 
 TYPE.forEach(value => {
@@ -33,11 +34,11 @@ export const CHAT = {
   SEND_MESSAGE: 'chat/SEND_MESSAGE',
   ADD_IMAGE: 'chat/ADD_IMAGE',
   SET_PROGRESS: 'chat/SET_PROGRESS',
-  GET_CHAT_MEMBER: 'chat/GET_CHAT_MEMBER',
   GET_CHAT_DATE: 'chat/GET_CHAT_DATE',
   ROOMOUT: 'chat/ROOMOUT',
   SET_LATEST: 'chat/SET_LATEST',
-  REMOVE_LATEST: 'chat/REMOVE_LATEST'
+  REMOVE_LATEST: 'chat/REMOVE_LATEST',
+  CREATE_ROOM: 'chat/CREATE_ROOM'
 }
 
 

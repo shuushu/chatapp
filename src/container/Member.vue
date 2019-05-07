@@ -41,7 +41,7 @@
 </template>
 
 <script>
-  import { mapState, mapGetters } from 'vuex'
+  import { mapState, mapGetters, mapActions } from 'vuex'
   import { CHAT, MEMBER } from '@/store/namespace'
   import { yyyymm } from '@/common/util'
   
@@ -59,7 +59,7 @@
         }
     },
     computed: {
-      fetchData() {
+      fetchData() {        
         if (this.chatMember) {
           return this.filter(this.member, this.chatMember)
         } else {
@@ -75,25 +75,34 @@
         filter: MEMBER.SET_FILTER
       }) 
     },
-    created () {      
-        this.$run(MEMBER.GET_MEMBER)
+    created () {  
+      this.getMember()      
     },
     methods: {
+        ...mapActions({
+          getMember: MEMBER.GET_MEMBER,
+          setJoin: MEMBER.SET_JOIN
+        }),
         toggle () {
-            this.$run('invite')
+            this.$store.dispatch('invite')
         },
         memberJoin() {            
             // 채팅방에서 초대할때
             if(this.chatMember) {
-              this.$run('dialogAlert', { message: '초대하였습니다.' })
+              this.$store.dispatch('dialogAlert', { message: '초대하였습니다.' })
               this.checkArr = this.checkArr.concat(this.chatMember)
             } else {
               // 내 uid 추가              
               this.checkArr.push(this.auth.uid);
             }
    
-            this.$run(MEMBER.SET_JOIN, this.checkArr).then(roomKey => {                
-                this.$router.push(`/message/${roomKey}`)
+            this.setJoin(this.checkArr).then(roomKey => {                
+                this.$router.push({
+                  name: 'message',
+                  params: {
+                    id: roomKey
+                  }
+                })
                 
                 const TOADY = yyyymm(new Date());
 

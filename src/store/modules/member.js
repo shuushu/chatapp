@@ -1,16 +1,14 @@
 import firebase from 'firebase'
 import rootMutations from '@/store/mutations'
-import { put, call } from "vuex-saga";
-import ROOT, { MEMBER } from '@/store/namespace'
-import { yyyymm } from '@/common/util'
+import ROOT, { CHAT } from '@/store/namespace'
 
 let state = {
   memberList: null
 };
 
 const mutations = {
-  GET_MEMBER: (state, data) => {
-    state.memberList = data
+  GET_MEMBER: (state, payload) => {
+    state.memberList = payload
   }
 };
 
@@ -27,124 +25,104 @@ const getters = {
 
 
 const actions = {
-  *GET_MEMBER() {
-    if (this.state.member.memberList) {
+  // payload 유저UID
+  getUserInfo({ dispatch }, payload) {
+    return new Promise(resolve => {
+      firebase.database().ref(`myChat/users/${payload}`).once('value').then(result => {
+        if (result.val()) {
+          resolve(result.val())
+        } else {          
+          dispatch('dialogAlert2', { message: '멤버정보 오류' })
+          resolve(false)
+        }
+      })
+    })
+  },  
+  GET_MEMBER({ commit, dispatch }, payload) {
+    let { memberList } = this.state.member;
+
+    if (memberList) {
        return true;
-    }
+    } else {
+      commit(ROOT.GET_MEMBER_REQ_WAIT, payload, { root: true })
 
-    yield put(ROOT.GET_MEMBER_REQ_WAIT)
-
-    return yield call(() => {
-      return new Promise(resolve => {
-        firebase.database().ref('myChat/users').on('value', (res) => {
-          let result = res.val(),
-              memberList = {};
-
-
-          for (let key in result) {
-            memberList[key] = result[key]
-          }
-
-
-          if (result) {
-            this.commit(MEMBER.GET_MEMBER, memberList);
-            this.commit(ROOT.GET_MEMBER_REQ_SUCCESS)
-            resolve(memberList)
-          } else {
-            this.commit(ROOT.GET_MEMBER_REQ_FAIL);
-            resolve(null)
-          }
+      return new Promise((resolve, reject) => {
+        firebase.database().ref('myChat/users').on('value', res => {
+            let result = res.val();
+            if (result) {              
+                commit('GET_MEMBER', result);
+                commit(ROOT.GET_MEMBER_REQ_SUCCESS, payload, { root: true })
+                resolve(result)
+            } else {
+                commit(ROOT.GET_MEMBER_REQ_FAIL, payload, { root: true });
+                dispatch('dialogAlert2', { message: '멤버조회 오류' } , { root: true }) 
+                reject('멤버조회 오류')
+            }        
         })
       })
-    });
+    }
   },
   /*
     @uids 나와 상대방 uids { type: Array }
    */
-  *SET_JOIN() {
-      let uids = arguments[1],
-          size = uids.length,
-          roomData = {}; // 챗 리스트와 룸을 연결하는 PK
-
-      yield put(ROOT.SET_JOIN_REQ_WAIT)
-
-      roomData = yield call(() => {
-          return new Promise(resolve => {
-              // 1:1 대화일때만 다음 대화시에도 이전 대화를 이끌어 간다.
-              if (size === 2) {
-                  // 이전에 대화한 기록이 있나? 조사한다
-                  firebase.database().ref(`myChat/private/${uids[1]}`).child(uids[0]).once('value').then(res => {
-                      // 있다면 룸키를 가져 오고 없으면 신규로 만듬
-                      if (res.val()) {
-                          roomData = {
-                              hasRoom: true,
-                              key: res.val()
-                          };
-                      } else {
-                          roomData.hasRoom = false;
-                          roomData.key = firebase.database().ref(`myChat/private/${uids[1]}`).push().key;
-                          firebase.database().ref(`myChat/private/${uids[1]}`).child(uids[0]).set(roomData.key);
-                          firebase.database().ref(`myChat/private/${uids[0]}`).child(uids[1]).set(roomData.key);
-                      }
-
-                      resolve(roomData)
-                  })
-              } else {
-                  // 여러명 대화시
-                  roomData.hasRoom = false;
-                  roomData.key = firebase.database().ref().push().key;
-                  resolve(roomData)
-              }
-          })
-      })
-
-      if (roomData.hasRoom) {
-          // 룸으로 보낸다.
-          yield put(ROOT.SET_JOIN_REQ_SUCCESS)
-          return roomData.key
+  async SET_JOIN({ commit, dispatch }, payload) {
+                
+      commit(ROOT.SET_JOIN_REQ_WAIT, null, { root: true })
+      /*
+        @roomData 나와 상대가 이전에 대화 이력이 있는지 조회 후 있으면 기존 방으로 다시 대화 없다면 새로 생성
+                  그룹 대화는 이력과 관계없이 생성시킨다.
+        @hasRoom 기존방이 있나 { Bolean }
+        @key { 챗리트스 key }
+      */
+      const myHistory = await isPrivate(payload)
+ 
+      if (myHistory) {
+          // 1:1 대화 이력이 있는경우 return RoomKey
+          commit(ROOT.SET_JOIN_REQ_SUCCESS, null, { root: true })
+          return myHistory
       } else {
-          // 방 만든다.
-          yield put(ROOT.SET_JOIN_REQ_SUCCESS)
-          return yield call(() => {
-              return new Promise(resolve => {
-                  // 내 계정 대화 목록 만들기
-                  let data = {
-                          // 상태: 0 읽음, 1 읽지않음, 2 공지
-                          state: 0,
-                          join: uids,
-                          text: '방이 개설됨'
-                      },
-                      date = new Date();
-
-                  date = yyyymm(date);
-                  // 룸리스트 생성
-                  for (let i = 0; i < size; i += 1) {
-                      firebase.database().ref(`myChat/list/${uids[i]}`).child(roomData.key).update(data);
-                  }                  
-                  //crateRoomList(uids, roomData.key, data)
-                  // 작성자 uid
-                  // 작성내용
-                  // 메세지타입: 0 일반 1 이미지 2 파일 3공지
-                  let path = {};
-                  path.members = uids
-                  path.item = [{
-                      write: 'admin',
-                      text: '방이 개설됨',
-                      type: 3
-                  }]
-                  path.date = date
-
-                  firebase.database().ref(`myChat/room/${roomData.key}`).set(path)
-
-                  resolve(roomData.key)
-              })
-          })
+          // 챗방 키 생성
+          let data = Object.assign({ member: payload }, { key: firebase.database().ref().push().key })
+          commit(ROOT.SET_JOIN_REQ_SUCCESS, null, { root: true })    
+          // 생성된 챗팅방 KEY
+          return await dispatch(CHAT.CREATE_ROOM, data, { root: true })
       }
-
-
   }
 };
 
+
+function isPrivate(payload) {
+  let uids = payload,
+      size = uids.length,
+      roomData = {}; // 챗 리스트와 룸을 연결하는 PK
+
+  return new Promise(resolve => {
+      // 1:1 대화일때만 다음 대화시에도 이전 대화를 이끌어 간다.
+      if (size === 2) {
+          // 이전에 대화한 기록이 있나? 조사한다
+          // 내 uid를 나중에 push 했기때문에 
+          // uids[0] = 상대방 uid, uids[1] = 내uid
+          firebase.database().ref(`myChat/private/${uids[1]}`).child(uids[0]).once('value').then(res => {
+              // 기존 방 검색
+              if (res.val()) {
+                  roomData = {
+                      hasRoom: true,
+                      key: res.val()
+                  };
+                  resolve(roomData.key)
+              } else {  // 없으면 신규로 만듬                       
+                  resolve(false)
+                  // roomData.hasRoom = false;
+                  // roomData.key = firebase.database().ref(`myChat/private/${uids[1]}`).push().key;
+                  // firebase.database().ref(`myChat/private/${uids[1]}`).child(uids[0]).set(roomData.key);
+                  // firebase.database().ref(`myChat/private/${uids[0]}`).child(uids[1]).set(roomData.key);
+              }
+          })
+      } else {
+        resolve(false)
+      }
+  })
+}
 
 export default {
   namespaced: true,

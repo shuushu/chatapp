@@ -31,66 +31,55 @@ const routes = [...routerMap.map(route => {
 
 const router = new VueRouter({
   mode: 'history',
-  base: '/chat2',
+  base: process.env.BASE_URL,
   //base: __dirname,
-  routes
+  routes,
+  scrollBehavior (to, from, savedPosition) {
+    if (savedPosition) {
+        return savedPosition
+    } else {
+        return {  
+            selector: '.page',
+            x: 0, 
+            y: 0 
+        }
+    }
+  }
 });
 
-let lisner;
 router.beforeEach((to, from, next) => {
-    // 실시간 로그인 인증상태 감시
     firebase.auth().onAuthStateChanged(user => {        
-        if (user) {            
-            if (lisner) {
-                lisner.off('value');
-            }
-            // 알림 수신 켜기
-            lisner = firebase.database().ref(`myChat/alarm/${user.uid}`);
-            lisner.on('value', snap => {
-                let value = snap.val(), total = 0;
-                if (value) {
-                    for (let i in value) {
-                        total += value[i];
-                    }
-                    value.total = total
+      if (user) {
+        let { uid, email, displayName, photoURL } = user;
+        photoURL = photoURL || 'http://placehold.it/60x60';
+        displayName = displayName || email;
 
-                    store.commit('ALARM_ON', value)
-                } else {
-                    store.commit('ALARM_ON', {
-                        item: null,
-                        total: 0
-                    })
-                }
-            })
-            
-            if (!store.state.auth) {
-                firebase.database().ref(`myChat/users/${user.uid}`).once('value').then(result => {
-                    store.commit('SESSION_AUTH', result.val())
-                    if (to.name === 'login') {
-                        // 홈으로 이동
-                        next('/member')
-                    } else {
-                        // 현재페이지
-                        next()
-                    }
-                })
-            } else {
-                if (to.name === 'login') {
-                    // 홈으로 이동
-                    next('/member')
-                } else {
-                    // 현재페이지
-                    next()
-                }
-            }
-        } else {
-            // 비로그인 > 경로가 로그인 페이지이면
-            if(to.name === 'login') {
-                next()
-            } else {
-                next('/login')
-            }
+        // session init 
+        // 스토어에 세션값이 저장되면 그 후 실행 하지 않음
+        if (store.state.auth === null) {
+          store.commit('SET_AUTH',  { uid, email, displayName, photoURL })
+          store.dispatch('getAlarm')
         }
+
+        if (to.name === 'login') {
+          // 홈으로 이동
+          next('/member')
+        } else {
+          // 현재페이지
+          next()
+        }
+      } else {
+        setTimeout(() => {
+          store.commit('SET_AUTH',  null)
+          store.dispatch('getAlarmOFF')
+        }, 300)
+
+        if(to.name === 'login') {
+          next()
+        } else {
+          next('/login')
+        }
+      }
     })
 });
 

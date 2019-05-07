@@ -15,21 +15,27 @@
       <md-list v-else>
         <md-list-item class="md-triple-line md-dense"  v-for="(items, key) in roomList" :key="key" @click="goToMessage(key)">
           <md-avatar>
-            <img :src="users.photoURL" v-for="users in items.join" :key="users.uid" :alt="users.displayName">
+            <img :src="member[z].photoURL" v-for="(users, z) in items.join" :key="`img-${z}`" :alt="member[z].displayName">
           </md-avatar>
 
           <div class="md-list-item-text">
             <span class="join-member">
               참여자: 
-              <span class="join-item" v-for="users in items.join" :key="`join-${users.uid}`">{{ users.displayName }}</span>
+              <span class="join-item" v-for="(users, i) in items.join" :key="`join-${i}`">{{ member[i].displayName }}</span>
             </span>
             <span class="title">{{ items.text }}</span>            
           </div>
           <md-badge v-if="alarm[key] > 0" :md-content="alarm[key]">
             <md-button class="md-icon-button">
               <md-icon>notifications</md-icon>
-            </md-button>
+            </md-button>          
           </md-badge>
+          <!-- 방삭제 -->
+          <md-button class="md-icon-button delete" @click.stop="removeRoom(key)">
+            <md-icon>close</md-icon>
+          </md-button>
+
+
         </md-list-item>
       </md-list>
 
@@ -38,8 +44,8 @@
 </template>
 
 <script>
-    import { mapState } from 'vuex'
-    import { CHAT, MEMBER } from '@/store/namespace'
+    import { mapState, mapActions } from 'vuex'
+    import ROOT, { CHAT, MEMBER } from '@/store/namespace'
     
     export default {
         name: 'List',
@@ -58,23 +64,38 @@
         },
         created () {  
             // 초대창 닫기
-            this.$run('invite', false) 
-            // 유저 정보를 먼저 받는다
+            this.$store.dispatch('invite', false) 
             if (this.member) {
-              this.$run(CHAT.GET_ROOMLIST)
+              this.getRoomList()
             } else {
               // 현재 방 목록에 참여된 멤버를 확인하기 위해(닉네임 및 정보), 
               // 멤버를 목록을 가져온 후 실행
-              this.$run(MEMBER.GET_MEMBER).then(res => {
-                if (res) {                  
-                  this.$run(CHAT.GET_ROOMLIST)
-                }                
+              this.getMember().then(res => {
+                if (res) {
+                  this.getRoomList()
+                }
               })
             }
         },
-        methods: {          
+        methods: {
+            ...mapActions({
+                confirm: 'dialogConfirm',                
+                getMember: MEMBER.GET_MEMBER,
+                getRoomList: CHAT.GET_ROOMLIST
+            }), 
             goToMessage(key) {
               this.$router.push(`/message/${key}`);
+            },
+            removeRoom(key) {
+              this.confirm({
+                name: '방삭제',
+                message: '선택된 방을 삭제 하시겠습니까?',
+                action: () => {
+                  let { join } = this.roomList[key]
+                  this.$store.dispatch('chat/DELETE_ROOM', { key: key, join })
+                }
+                // end action                
+              })
             }
         }
     }
@@ -132,6 +153,11 @@
     }
     .md-list-item-container{
       padding: 10px 0;
+    }
+    .delete{
+      position: relative;
+      z-index: 10;
+      margin-right: -5px;
     }
   }
 </style>

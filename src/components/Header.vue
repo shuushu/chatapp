@@ -17,7 +17,7 @@
           </md-badge>
 
 
-          <md-button class="md-icon-button" @click="logout">
+          <md-button class="md-icon-button" @click="logoutConfirm">
             <md-icon>highlight_off</md-icon>
           </md-button>
         </div>
@@ -26,6 +26,8 @@
 </template>
 
 <script>
+  import { mapActions } from 'vuex'
+
   export default {
     name: 'Header',
     data: () => ({
@@ -41,26 +43,25 @@
       }
     },
     methods: {
+      ...mapActions([
+        'dialogConfirm', 'logout'
+      ]),
       historyBack(){
         this.$router.go(-1)
       },
 
-      logout() {
-        this.$run('dialogConfirm', {
+      logoutConfirm() {
+        this.dialogConfirm({
           name: '로그아웃',
           message: '로그아웃 하시겠습니까?',
           action: this.actionLogout
-        });
-      },
-      actionLogout() {
-        this.$run('logout').then(res => {
-          this.$run('dialogAlert', {
-            message: res ? '로그아웃 되었습니다' : res.code
-          })
         })
       },
+      actionLogout() {
+        this.logout()
+      },
       goList() {
-        this.$router.push('/list')
+        this.$router.push({ name: 'list' })
       }
     }
   }
