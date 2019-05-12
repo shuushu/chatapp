@@ -3,6 +3,7 @@ import rootMutations from '@/store/mutations'
 import { put, call } from "vuex-saga";
 import ROOT, { CHAT } from '@/store/namespace'
 import { yyyymm, urlExp, urlify } from '@/common/util'
+import { reject } from 'q';
 // 다음은 live리스너 변수
 let messageOn,
     chatDateKey, // 챗방 날짜
@@ -47,54 +48,38 @@ const mutations = {
 const actions = {
   async GET_ROOMLIST({ commit, dispatch }) {
     let { auth, chat } = this.state;
+
     // vuex에 저장되면 다음부턴 실행하지 않음
-    if (chat.roomList) {
-      return true
-    }
+    if (chat.roomList === null) {      
+      commit(ROOT.GET_ROOMLIST_REQ_WAIT, null, { root: true })  
+      
+      await firebase.database().ref(`myChat/list/${auth.uid}`).on('value', res => {
+          let result = res.val();
 
-    commit(ROOT.GET_ROOMLIST_REQ_WAIT, null, { root: true })  
-        
-    await firebase.database().ref(`myChat/list/${auth.uid}`).on('value', res => {
-        let result = res.val();
-
-        if (result) {
-          for (let key in result) {
-            dispatch('GET_CURRENT_MEMBER', key).then(res => {
-              result[key].join = res.data
-              commit('GET_ROOMLIST', result)
-              commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
-            })
+          if (result) {
+            for (let key in result) {
+              dispatch('GET_CURRENT_MEMBER', key).then(res => {
+                result[key].join = res.data
+                commit('GET_ROOMLIST', result)
+                commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
+              })
+            }
+          } else {
+            commit('GET_ROOMLIST', result)
+            commit(ROOT.GET_ROOMLIST_REQ_FAIL, null, { root: true })
           }
-
-          // 내 방목록 리스트에 join된 멤버의 정보를 맵핑
-          // for (let key in result) {
-          //   result[key].join = (() => {
-          //     let obj = {}, joinMember = result[key].join;                  
-          //     for (let i = 0, size = joinMember.length; i < size; i += 1) {
-          //         let key = joinMember[i];
-          //         // 멤버 정보가 담긴 객체 만들기
-          //         if (member.memberList[key]) {
-          //           obj[key] = member.memberList[key]
-          //         }
-          //     }
-          //     return obj 
-          //   })()
-          // }        
-
-        } else {
-          commit('GET_ROOMLIST', result)
-          commit(ROOT.GET_ROOMLIST_REQ_FAIL, null, { root: true })
-        }
-    })
+      })
+    } else {
+      commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
+    }
   },
   CREATE_ROOM({}, payload) {
       let { member, key } = payload,             
-          data = {                          
+          roomListData = {                          
               state: 1, // 상태: 0 읽음, 1 읽지않음, 2 공지
               text: '방이 개설됨'
           },
-          date = new Date(),
-          join = {}; // 방에 참여한 멤버들
+          date = new Date();
 
 
       return new Promise(resolve => {
@@ -105,19 +90,17 @@ const actions = {
           firebase.database().ref(`myChat/private/${member[1]}`).child(member[0]).set(key);
           firebase.database().ref(`myChat/private/${member[0]}`).child(member[1]).set(key);
         }
-        // 조인테이블 생성        
-        for (let i = 0, size = member.length; i < size; i += 1) {
-          join[member[i]] = 0
-        }
-        data.join = join
-        firebase.database().ref(`myChat/join/${key}`).set(join)
 
         // 각 멤버들에게 챗리스트 생성시킨다
         for (let i = 0; i < member.length; i += 1) {
-            firebase.database().ref(`myChat/list/${member[i]}`).child(key).update(data);
-        }                  
+            firebase.database().ref(`myChat/list/${member[i]}`).child(key).update(roomListData);
+            // 접속상태 변경
+            firebase.database().ref(`myChat/join/${key}/${member[i]}`).set(0)
+        }
+
         firebase.database().ref(`myChat/room/${key}`).set({
-            date: date,
+            date,
+            member,
             item: [{
               write: 'admin',
               text: '방이 개설됨',
@@ -187,7 +170,6 @@ const actions = {
         }
       })
     })
-
   },
   async GET_MESSAGE({ commit, dispatch }, payload) {
       let { key, today } = payload,
@@ -213,7 +195,7 @@ const actions = {
       await dispatch('GET_CURRENT_MEMBER', key)
       commit(ROOT.GET_MESSAGE_REQ_WAIT, null, { root: true })
       // 알람갱신
-      firebase.database().ref(`myChat/alarm/${uid}/${key}`).set(0)
+      //firebase.database().ref(`myChat/alarm/${uid}/${key}`).set(0)
       
       // 현재 날짜가 룸 날짜가 다르면 챗방 날짜 변경하고 날자 알림 메세지
       if (chatDate !== today) {
@@ -240,8 +222,6 @@ const actions = {
           //   await this.commit(ROOT.GET_MESSAGE_REQ_SUCCESS)
           // }  
           // 현재 접속 멤버 state에 반영
-
-
           let result = snap.val();
            if (result) {
               if (chatDate === today) {
@@ -257,7 +237,7 @@ const actions = {
       })
       
       // 입장상태
-      firebase.database().ref(`myChat/room/${key}/isLogin/${uid}`).set(1)
+      //firebase.database().ref(`myChat/room/${key}/isLogin/${uid}`).set(1)
       // return false;
       
       // yield call(() => {
@@ -379,210 +359,57 @@ const actions = {
   },
   async SEND_MESSAGE2({ commit, dispatch }, payload) {
     let { type, write, today, key, text, path } =  payload,
-        { chatMember, chatDate, message } = this.state.chat;
+        { chatMember, chatDate, message } = this.state.chat,
+        result = null,
+        messageID = firebase.database().ref('myChat/room').push();
+   
+    messageID = messageID.getKey();
 
     // 기존 메세지에 신규 메세지 업데이트(vuex)
-    message[key] = { type, text, write, today }
+    message[messageID] = { type, text, write, today, unread: chatMember.total }
 
     // message가 url일 경우
     if (urlExp(text)) {
-      message[key].text = urlify(text)
-      message[key].vhtml = true
+      message[messageID].text = urlify(text)
+      message[messageID].vhtml = true
     }
     
     if (type === 1) {
-      message[key].path = path
+      message[messageID].path = path
     }
-
+    // 클라이언트화면에 먼저 보여줌
     commit(CHAT.GET_MESSAGE, message, { root: true })
     
-    // 비지니스 로직
-    let isSuccess = new Promise(resolve => {
-        // 자정이 될때 날짜가 변경하면서 이전 메세지는 old메세지로 보내고
-        // 신규 메세지를 생성시킨다 
-        if (chatDate !== today) {
-          let roomkey = firebase.database().ref('myChat/room').push(),
-              noti = [{
-                text: today,
-                type: 3,
-                write: 'admin'
-              }];
-                
-          roomkey = roomkey.getKey()  
+    await new Promise(resolve => {
+      // 자정이 될때 날짜가 변경하면서 이전 메세지는 old메세지로 보내고
+      // 신규 메세지를 생성시킨다 
+      if (chatDate !== today) {
+        let noti = [{
+              text: today,
+              type: 3,
+              write: 'admin'
+            }];                        
 
-          firebase.database().ref(`myChat/room/${key}/date`).set(today)        
-          firebase.database().ref(`myChat/room/${key}/item`).set({ ...noti, ...message })
-          resolve(true);          
-        } else {
-          // 서버 저장된 날짜와 메세지 전송시 날짜가 같을때
-          // 메세지 저장
-          msgKey = firebase.database().ref(`myChat/room/${key}/item`).push(message).push(msgData, error => {
-            if (error) {
-              resolve(false);
-            } else {
-              resolve(true);
-            }    
-          })
-        }
-    })
-    // 메세지가 성공일때
-    if (isSuccess) {  
-      // 챗방 최근 메세지 저장    
-      //await firebase.database().ref(`myChat/room/${key}/latest`).set(message)
-      // 현재 방 멤버들 접속 상태 확인
-      await firebase.database().ref(`myChat/join/${key}`).once('value').then(res => {
-        if (res.val()) {
-          dispatch('dialogAlert', { message: '접속멤버 확인 불가' })
-        } else {          
-          commit(ROOT.SEND_MESSAGE_REQ_FAIL, null, { root: true });
-          return false
-        }
-      })
-      // 챗 알림메세지
-      // setAlarm({
-      //   myuid: this.state.auth.uid,
-      //   chatMember: chatMember,
-      //   key: key,
-      //   text: text
-      // })
-      
-      commit(ROOT.SEND_MESSAGE_REQ_SUCCESS, null, { root: true });
-      resolve(true)
-    } else {
-      commit(ROOT.SEND_MESSAGE_REQ_FAIL, null, { root: true });
-      return false
-    }
-  },
+        firebase.database().ref(`myChat/room/${key}/date`).set(today)        
+        firebase.database().ref(`myChat/room/${key}/item`).set({ ...noti, ...message })
 
-  *SEND_MESSAGE() {
-      // 메세지 전송로직: 다음 로직은 순차처리 되어야 한다.
-      async function setAlarm(recive) {
-        let { myuid, chatMember, key, text } = recive, 
-            temp = {};
-
-        for (let i = 0, size = chatMember.length; i < size; i += 1) {          
-          if (myuid !== chatMember[i]) {
-            // 채팅방에 현재 접속자를 조회
-            let isEnjoy = await firebase.database().ref(`myChat/room/${key}/isLogin/${chatMember[i]}`).once('value').then(res => {
-              return res.val()
-            });
-            // 현재 접속하지 않을때
-            if (isEnjoy !== 1) {
-              temp[chatMember[i]] = 1;
-              let getAlarmCnt = await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).once('value').then(res => {
-                return res.val() || 0
-              })
-              await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).set(getAlarmCnt +1)
-            }
-          }
-          // 해당 챗 목록 최근 메세지 한줄 갱신
-          firebase.database().ref(`myChat/list/${chatMember[i]}/${key}/text`).set(text)      
-        }
-        
-        firebase.database().ref(`myChat/room/${key}/item/${msgKey.key}/unread`).update(temp)
-      }
-
-
-      let { type, write, today, key, text, path } = arguments[1],
-          { chatMember, chatDate } = this.state.chat,
-          msgData =  { type, text, write },
-          msgKey = '';
-      
-      yield put(ROOT.SEND_MESSAGE_REQ_WAIT)
-      // 전송할때마다 시간 체크
-      today = new Date();
-      today = yyyymm(today);
-
-      // message가 url일 경우
-      if (urlExp(text)) {
-        msgData.text = urlify(text)
-        msgData.vhtml = true
-      }
-
-      if (type === 1) {
-        msgData.path = path
-      }
-    
-
-      // 날짜가 변경될 때 chatDate 서버기록 날짜
-      let pushMsg = yield call(() => {
-        return new Promise(resolve => {
-          if (chatDate !== today) {
-            let oobj = {},
-                roomkey = '',
-                noti = [{
-                  text: today,
-                  type: 3,
-                  write: 'admin'
-                }];
-    
-            roomkey = firebase.database().ref('myChat/room').push(),
-            roomkey = roomkey.getKey()  
-            oobj[roomkey] = msgData
-    
-            firebase.database().ref(`myChat/room/${key}/date`).set(today)        
-            firebase.database().ref(`myChat/room/${key}/item`).set({ ...noti, ...oobj })
-            resolve(true);
-          } else {
-            msgKey = firebase.database().ref(`myChat/room/${key}/item`).push(msgData, error => {
-              if (error) {
-                resolve(false);
-              } else {
-                resolve(true);
-              }    
-            })
-          }
-          // reolveEND
-        })
-      })
-      // 메세지가 성공일때
-      if (pushMsg) {
-          return yield call(() => {
-            return new Promise(resolve => {
-                // 챗 알림메세지
-                firebase.database().ref(`myChat/room/${key}/latest`).set(msgData)
-                setAlarm({
-                  myuid: this.state.auth.uid,
-                  chatMember: chatMember,
-                  key: key,
-                  text: text
-                })
-              this.commit(ROOT.SEND_MESSAGE_REQ_SUCCESS);
-              resolve(true)
-            })
-          })        
+        resolve(true);
       } else {
-        this.commit(ROOT.SEND_MESSAGE_REQ_FAIL);
-        return false
-      }      
+        // 서버 저장된 날짜와 메세지 전송시 날짜가 같을때
+        // 메세지 저장
+        firebase.database().ref(`myChat/room/${key}/item`).update(message, err => {
+          if (err === null) {
+            result = true;
+            resolve(true);            
+          } else {
+            result = false;
+            resolve(false);            
+          }
+        })
+      }
+    })
 
-
- 
-
-      // for (let i = 0, size = chatMember.length; i < size; i += 1) {
-      //   // 챗리스트 한줄 갱신
-      //   firebase.database().ref(`myChat/list/${chatMember[i]}/${key}/text`).set(text)
-      //   // 상대방이 챗팅방에 없으면 알림으로 표시
-      //   if (this.state.auth.uid !== chatMember[i]) {
-      //       async function setAlarm() {
-      //         let isEnjoy = await firebase.database().ref(`myChat/room/${key}/isLogin/${chatMember[i]}`).once('value').then(res => {
-      //             return res.val()
-      //         });
-      //         // 현재 접속하지 않을때
-      //         if (isEnjoy === 0) {
-      //           let getAlarmCnt = await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).once('value').then(res => {
-      //             return res.val() || 0
-      //           })
-      //           await firebase.database().ref(`myChat/alarm/${chatMember[i]}/${key}`).set(getAlarmCnt +1)                
-      //         }
-
-      //         return true;
-      //       }
-      //       return setAlarm();
-      //   }
-      // }
-
-      
+    return result;
   },
   ADD_IMAGE({ commit }, payload) {
       return new Promise(resolve => {
@@ -602,7 +429,7 @@ const actions = {
           })  
       })
   },
-  // 챗방접속 상택
+  // 챗방접속 상태 변경
   SET_JOIN({}, payload) {
     let { type, key } = payload, myUID = this.state.auth.uid;
     firebase.database().ref(`myChat/join/${key}/${myUID}`).set(type === 'IN' ?  1 : 0)
@@ -619,7 +446,7 @@ const actions = {
     return new Promise(resolve => {
       chatDateKey = firebase.database().ref(`myChat/room/${payload.key}/date`)
       chatDateKey.on('value', res => {
-        commit(CHAT.GET_CHAT_DATE, res.val(), { root: true })
+        commit('GET_CHAT_DATE', res.val())
         resolve(true)
       })
     })

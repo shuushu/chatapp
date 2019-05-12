@@ -65,6 +65,7 @@
         created () {  
             // 초대창 닫기
             this.$store.dispatch('invite', false) 
+            
             if (this.member) {
               this.getRoomList()
             } else {

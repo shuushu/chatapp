@@ -20,6 +20,7 @@
           </div>        
         </div>
         <!-- 신규 메세지 -->        
+
         <div class="talk-items" :class="isWrite(msg.write)" v-for="(msg, pk, i) in message" :key="pk">
           <div class="img-wrap" v-if="isWrite(msg.write) != 'notice'">
             <md-avatar>            
@@ -53,9 +54,9 @@
       <div class="alarmLayer" v-if="tipFlag === true && latest !== false" @click="scrollToEnd('pop');">
         <div class="wrap">
           <md-avatar>            
-            <img :src="member[latest.write].photoURL" :alt="member[latest.write].displayName" />
+            <img :src="chatMember[latest.write].photoURL" :alt="chatMember[latest.write].displayName" />
           </md-avatar>
-          <span class="name">{{member[latest.write].displayName}}</span>
+          <span class="name">{{chatMember[latest.write].displayName}}</span>
           <span class="text">{{latest.text}}</span>
         </div>
       </div>      
@@ -64,12 +65,12 @@
 </template>
 
 <script>
-  import { mapState } from 'vuex'
-  import { CHAT } from '@/store/namespace'
-  import Talkbox from '@/components/Talkbox.vue'
-  import Member from '@/container/Member.vue'
-  import { EventBus } from '@/main'  
-  import { yyyymm, isCurrentView } from '@/common/util'
+import { mapState, mapActions } from 'vuex'
+import { CHAT } from '@/store/namespace'
+import Talkbox from '@/components/Talkbox.vue'
+import Member from '@/container/Member.vue'
+import { EventBus } from '@/main'  
+import { yyyymm, isCurrentView } from '@/common/util'
 import { setTimeout } from 'timers';
   
   export default {
@@ -90,14 +91,14 @@ import { setTimeout } from 'timers';
     computed: {
       ...mapState({
           latest: state => state.chat.latest,
-          invite: state => state.invite,
-          auth: state => state.auth,
-          message: state => state.chat.message,
-          oldMsg: state => state.chat.oldMsg,
-          member: state => state.member.memberList,
-          chatMember: state => state.chat.chatMember,
-          chatDate: state => state.chat.chatDate,
-          pgr: state => state.chat.progress
+          invite: state => state.invite, // 초대창UI상태 flag
+          auth: state => state.auth, // 내정보
+          message: state => state.chat.message, // 메세지 Array
+          oldMsg: state => state.chat.oldMsg, // 이전메세지
+          allMember: state => state.member.memberList, // 모든멤버
+          chatMember: state => state.chat.chatMember, // 참여된 멤버
+          chatDate: state => state.chat.chatDate, // 메세지 date
+          pgr: state => state.chat.progress // 이미지 로딩 프로그래스
       })
     },
     watch: { 
@@ -123,7 +124,7 @@ import { setTimeout } from 'timers';
         type: 'OUT',
         key: this.roomkey
       })
-      this.$run(CHAT.REMOVE_LATEST, this.roomkey)
+      //this.$run(CHAT.REMOVE_LATEST, this.roomkey)
     },
     created () {
       this.roomkey = this.$route.params.id
@@ -141,16 +142,17 @@ import { setTimeout } from 'timers';
       EventBus.$on('imgPreview', path => {
         this.preview = path
       })
+      // 내접속상태 변경
+      this.$store.dispatch('chat/SET_JOIN', {
+        type: 'IN',
+        key: data.key
+      })
 
       // [비정상 접근]새로 고침시 채팅에 속한 멤버 정보가 없으므로 리스트로 보낸다.
       if (this.member === null) {        
         this.$router.push('/list')
       } else {
-        this.$run(CHAT.SET_LATEST, data)
-        this.$store.dispatch('chat/SET_JOIN', {
-          type: 'IN',
-          key: data.key
-        })        
+        //this.$run(CHAT.SET_LATEST, data)
         this.$store.dispatch(CHAT.GET_CHAT_DATE, data).then(res => {
           if (res) {
               this.$store.dispatch(CHAT.GET_MESSAGE, data)
@@ -228,7 +230,7 @@ import { setTimeout } from 'timers';
             // await this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile)
           }
           // 뷰로직
-          await this.$store.dispatch('chat/SEND_MESSAGE2', data).then(res => {                    
+          await this.$store.dispatch('chat/SEND_MESSAGE2', data).then(res => {
               // 프로세스가 순차처리 되었을때
               if (res) {
                 this.sendWait = false;
@@ -242,51 +244,51 @@ import { setTimeout } from 'timers';
           })
           
           
-          return false;
+          // return false;
 
-          new Promise(resolve => {
-              // 이미지 첨부할때
-              if (data.addFile) {
-                // await this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile).then(path => {
-                //   data.path = path;
-                //   data.type = 1;
-                // })
-              } else {
+          // new Promise(resolve => {
+          //     // 이미지 첨부할때
+          //     if (data.addFile) {
+          //       await this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile).then(path => {
+          //         data.path = path;
+          //         data.type = 1;
+          //       })
+          //     } else {
                 
-                // this.$store('chat/SEND_MESSAGE2', data).then(result => {
-                //   if (result) {
-                //     resolve(true)
-                //   } else {
-                //     resolve(false)
-                //   }
-                // })                
-              }
-              this.$store.dispatch('chat/SEND_MESSAGE2', data)
-          }).then(res => {
-            this.sendWait = false;          
-            // 프로세스가 순차처리 되었을때
-            if (res) {
-              EventBus.$emit('sendResult', true) 
-              // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.            
-              this.scrollToEnd(true);
-            } else {
-              this.$run('dialogAlert', { message: '메세지 전송중 에러 발생' })
-            }      
-          })
+          //       this.$store('chat/SEND_MESSAGE2', data).then(result => {
+          //         if (result) {
+          //           resolve(true)
+          //         } else {
+          //           resolve(false)
+          //         }
+          //       })                
+          //     }
+          //     this.$store.dispatch('chat/SEND_MESSAGE2', data)
+          // }).then(res => {
+          //   this.sendWait = false;          
+          //   // 프로세스가 순차처리 되었을때
+          //   if (res) {
+          //     EventBus.$emit('sendResult', true) 
+          //     // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.            
+          //     this.scrollToEnd(true);
+          //   } else {
+          //     this.$run('dialogAlert', { message: '메세지 전송중 에러 발생' })
+          //   }      
+          // })
         },
         mappingAvatar(uid) {
           if (this.auth.uid === uid) {
             return this.auth.photoURL
           } else {
-            return this.member[uid].photoURL
+            return this.chatMember[uid].photoURL
           }
         },
-        mappingUserName(uid) {
+        mappingUserName(uid) {          
           if (this.auth.uid === uid) {
             return this.auth.displayName
           } else {
             if (uid !== 'admin') {
-              return this.member[uid].displayName
+              return this.chatMember[uid].displayName
             } else {
               return uid
             }
