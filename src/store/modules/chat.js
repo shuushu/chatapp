@@ -50,25 +50,31 @@ const actions = {
     let { auth, chat } = this.state;
 
     // vuex에 저장되면 다음부턴 실행하지 않음
-    if (chat.roomList === null) {      
+    if (chat.roomList === null) {
       commit(ROOT.GET_ROOMLIST_REQ_WAIT, null, { root: true })  
       
-      await firebase.database().ref(`myChat/list/${auth.uid}`).on('value', res => {
-          let result = res.val();
-
-          if (result) {
-            for (let key in result) {
-              dispatch('GET_CURRENT_MEMBER', key).then(res => {
-                result[key].join = res.data
-                commit('GET_ROOMLIST', result)
-                commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
-              })
+      let getRoomData = await new Promise(resolve => {
+        firebase.database().ref(`myChat/list/${auth.uid}`).on('value', res => {
+            let result = res.val();
+            if (result) {
+              resolve(result)
+            } else {
+              resolve(false)
             }
-          } else {
-            commit('GET_ROOMLIST', result)
-            commit(ROOT.GET_ROOMLIST_REQ_FAIL, null, { root: true })
-          }
+        })
       })
+      if (getRoomData) {
+        for (let key in getRoomData) {
+          await dispatch('GET_CURRENT_MEMBER', key).then(res => {
+            getRoomData[key].join = res.data          
+          })          
+        }
+        await commit('GET_ROOMLIST', getRoomData)
+        await commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
+      } else {
+        commit('GET_ROOMLIST', result)
+        commit(ROOT.GET_ROOMLIST_REQ_FAIL, null, { root: true })
+      }
     } else {
       commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
     }
@@ -76,9 +82,10 @@ const actions = {
   CREATE_ROOM({}, payload) {
       let { member, key } = payload,             
           roomListData = {                          
-              state: 1, // 상태: 0 읽음, 1 읽지않음, 2 공지
+              state: 1, // 상태: 0 즐겨찾기, 1 일반
               text: '방이 개설됨'
           },
+          myStorage = JSON.parse(localStorage.getItem('myChatMessage')),
           date = new Date();
 
 
@@ -93,21 +100,35 @@ const actions = {
 
         // 각 멤버들에게 챗리스트 생성시킨다
         for (let i = 0; i < member.length; i += 1) {
-            firebase.database().ref(`myChat/list/${member[i]}`).child(key).update(roomListData);
-            // 접속상태 변경
+            firebase.database().ref(`myChat/list/${member[i]}`).child(key).set(roomListData);
+            // 챗방 초기 접속 상태 생성, 초기값 0은 비접속 1접속
             firebase.database().ref(`myChat/join/${key}/${member[i]}`).set(0)
+            // 알람 초기 갯수 0설정
+            firebase.database().ref(`myChat/alarm/${member[i]}`).child(key).set(0)
         }
 
         firebase.database().ref(`myChat/room/${key}`).set({
             date,
-            member,
             item: [{
               write: 'admin',
               text: '방이 개설됨',
+              unread: 0,
               type: 3 // 메세지타입: 0 일반 1 이미지 2 파일 3공지
           }]
         })
-        
+
+
+        // 캐쉬메세지가 없을떄       
+        if (myStorage === null) {
+          let obj = {
+            [key]: {
+              [date]: {}
+            }
+          };
+          myStorage = obj
+          localStorage.setItem('myChatMessage', JSON.stringify(myStorage));
+        }
+
         resolve(key)
       })
   },
@@ -155,6 +176,7 @@ const actions = {
     return new Promise(resolve => {
       currentMember.on('value', snap => {
         let data = snap.val()
+
         if (data) {      
           let cnt = 0;
           for (let userState in data) {
@@ -175,125 +197,82 @@ const actions = {
       let { key, today } = payload,
           { uid } = this.state.auth,
           { chatDate } = this.state.chat,
-          myStorage = JSON.parse(localStorage.getItem('myChatMessage')),
-          obj = {};
+          myStorage = JSON.parse(localStorage.getItem('myChatMessage'));
 
       if (messageOn) {
         messageOn.off('value')
       }
-      
+      // 캐쉬메세지가 없을떄       
       if (myStorage === null) {
-        obj[key] = {}
-        obj[key][today] = {};
-        myStorage = obj
+        let obj = {
+          [key]: {
+            [today]: {}
+          }
+        };
+        myStorage = obj        
+      }
+      // 캐쉬메세지는 있으나 새로운 방이 생성 될 경우
+      if (!myStorage[key]) {
+          let obj = {
+            [key]: {
+              [today]: {}
+            }
+          };
+          myStorage = { ...obj, ...myStorage }
       }
 
-      if (!myStorage[key]) {
-        myStorage[key] = {};
-        myStorage[key][today] = {};
-      }
+      localStorage.setItem('myChatMessage', JSON.stringify(myStorage));
+
+      // 챗방 접속 상태 감시
       await dispatch('GET_CURRENT_MEMBER', key)
       commit(ROOT.GET_MESSAGE_REQ_WAIT, null, { root: true })
-      // 알람갱신
-      //firebase.database().ref(`myChat/alarm/${uid}/${key}`).set(0)
+      // [알람] 읽음으로 처리
+      firebase.database().ref(`myChat/alarm/${uid}/${key}`).set(0)
       
       // 현재 날짜가 룸 날짜가 다르면 챗방 날짜 변경하고 날자 알림 메세지
       if (chatDate !== today) {
-        firebase.database().ref(`myChat/room/${key}/date`).set(today)
-        firebase.database().ref(`myChat/room/${key}/item`).set([{
-          text: today,
-          type: 3,
-          write: 'admin'                
-        }])
+        firebase.database().ref(`myChat/room/${key}`).set({
+          date: today,
+          item: [{
+            text: today,
+            type: 3,
+            unread: 0,
+            write: 'admin'
+          }]
+        })
       }
+
       // 메세지 감시
-      messageOn = firebase.database().ref(`myChat/room/${key}/item`)      
+      messageOn = firebase.database().ref(`myChat/room/${key}/item`)
+      // 방 첫 진입시에만 읽음처리 실행
+      messageOn.once('value', snap => {
+        let result = snap.val();
+        if (result) {          
+          for(let key in result) {
+            // 읽음상태가 0보다 크고, 내가 쓴 메세지만 아닐때만 실행
+            if (result[key].unread !== 0 && result[key].write !== uid && result[key].read[uid] !== 1) {
+              result[key].unread -= 1;              
+              result[key].read[uid] = 1;
+            }            
+          }
+          firebase.database().ref(`myChat/room/${key}/item`).set(result)
+        }
+      })
+      // 메세지 리스닝
       messageOn.on('value', snap => {
-          // async function seqStep() {
-          //   for(let key in result) {
-          //     if (result[key].unread !== undefined) {
-          //       if (result[key].unread[this.state.auth.uid]) {
-          //         result[key].unread[this.state.auth.uid] = 0
-          //         await firebase.database().ref(`myChat/room/${data.key}/item/${key}/unread/${this.state.auth.uid}`).set(0)
-          //       }
-          //     }
-          //   }
-          //   await this.commit(CHAT.GET_MESSAGE, result)
-          //   await this.commit(ROOT.GET_MESSAGE_REQ_SUCCESS)
-          // }  
-          // 현재 접속 멤버 state에 반영
           let result = snap.val();
-           if (result) {
+          if (result) {
+              //  로컬스토리지 재정의
               if (chatDate === today) {
-                  //myStorage[key][today] = result;
-              }                  
-              commit('GET_MESSAGE', result)
-              //seqStep.call(this)
-              localStorage.setItem('myChatMessage', JSON.stringify(myStorage));
+                myStorage[key][today] = result;
+              }
               
+              commit('GET_MESSAGE', result)
+              localStorage.setItem('myChatMessage', JSON.stringify(myStorage));              
           } else {
               commit(ROOT.GET_MESSAGE_REQ_FAIL, null, { root: true })
           }
       })
-      
-      // 입장상태
-      //firebase.database().ref(`myChat/room/${key}/isLogin/${uid}`).set(1)
-      // return false;
-      
-      // yield call(() => {
-      //   return new Promise(() => {
-      //       let myStorage = {},
-      //           data = arguments[1],
-      //           chatDate = this.state.chat.chatDate;
-
-                
-      //       // 머지하기 위해
-      //       myStorage = JSON.parse(localStorage.getItem('myChatMessage'));
-      //       if (myStorage === null) {
-      //         let obj = {};
-      //         obj[data.key] = {};
-      //         obj[data.key][data.today] = {};
-      //         myStorage = obj;
-      //       }
-
-      //       if (!myStorage[data.key]) {
-      //         myStorage[data.key] = {};
-      //         myStorage[data.key][data.today] = {};
-      //       }
-
-
-
-      //       messageOn = firebase.database().ref(`myChat/room/${data.key}/item`)
-      //       messageOn.on('value', snap => {
-      //           async function seqStep() {
-      //             for(let key in result) {
-      //               if (result[key].unread !== undefined) {
-      //                 if (result[key].unread[this.state.auth.uid]) {
-      //                   result[key].unread[this.state.auth.uid] = 0
-      //                   await firebase.database().ref(`myChat/room/${data.key}/item/${key}/unread/${this.state.auth.uid}`).set(0)
-      //                 }
-      //               }
-      //             }
-      //             await this.commit(CHAT.GET_MESSAGE, result)
-      //             await this.commit(ROOT.GET_MESSAGE_REQ_SUCCESS)
-      //           }  
-
-      //           let result = snap.val();
-      //            if (result) {
-      //               if (chatDate === data.today) {
-      //                   myStorage[data.key][data.today] = result;
-      //               }                  
-      //               seqStep.call(this)
-      //               localStorage.setItem('myChatMessage', JSON.stringify(myStorage));
-                    
-      //           } else {
-      //               this.commit(ROOT.GET_MESSAGE_REQ_FAIL)
-      //           }
-      //       })
-
-
-      //   })
-      // })
   },
   *ROOMOUT(){
     yield call(() => {
@@ -357,16 +336,16 @@ const actions = {
       })
     })
   },
-  async SEND_MESSAGE2({ commit, dispatch }, payload) {
+  async SEND_MESSAGE2({ commit }, payload) {
     let { type, write, today, key, text, path } =  payload,
-        { chatMember, chatDate, message } = this.state.chat,
+        { chatMember, chatDate, message } = this.state.chat,        
         result = null,
         messageID = firebase.database().ref('myChat/room').push();
    
     messageID = messageID.getKey();
 
     // 기존 메세지에 신규 메세지 업데이트(vuex)
-    message[messageID] = { type, text, write, today, unread: chatMember.total }
+    message[messageID] = { type, text, write, unread: chatMember.total, read: chatMember.data }
 
     // message가 url일 경우
     if (urlExp(text)) {
@@ -380,13 +359,14 @@ const actions = {
     // 클라이언트화면에 먼저 보여줌
     commit(CHAT.GET_MESSAGE, message, { root: true })
     
-    await new Promise(resolve => {
+    result = await new Promise(resolve => {
       // 자정이 될때 날짜가 변경하면서 이전 메세지는 old메세지로 보내고
       // 신규 메세지를 생성시킨다 
       if (chatDate !== today) {
         let noti = [{
               text: today,
               type: 3,
+              unread: 0,              
               write: 'admin'
             }];                        
 
@@ -397,7 +377,7 @@ const actions = {
       } else {
         // 서버 저장된 날짜와 메세지 전송시 날짜가 같을때
         // 메세지 저장
-        firebase.database().ref(`myChat/room/${key}/item`).update(message, err => {
+        firebase.database().ref(`myChat/room/${key}/item`).set(message, err => {
           if (err === null) {
             result = true;
             resolve(true);            
@@ -408,7 +388,21 @@ const actions = {
         })
       }
     })
-
+    
+    // 챗목록 최근 메세지 1건 수정
+    for (let user in chatMember.data) {
+      await firebase.database().ref(`myChat/list/${user}/${key}/text`).set(text)  
+      // 접속하지 않은 멤버에게 알림보내기
+      if (chatMember.data[user] === 0) {
+        let alarmRef = firebase.database().ref(`myChat/alarm/${user}/${key}`);
+        await alarmRef.once('value', snap => {
+          if (snap) {
+            alarmRef.set(snap.val() + 1)
+          }
+        })
+      }      
+    }    
+    
     return result;
   },
   ADD_IMAGE({ commit }, payload) {

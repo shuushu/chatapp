@@ -19,8 +19,7 @@
               </div>              
           </div>        
         </div>
-        <!-- 신규 메세지 -->        
-
+        <!-- 신규 메세지 -->
         <div class="talk-items" :class="isWrite(msg.write)" v-for="(msg, pk, i) in message" :key="pk">
           <div class="img-wrap" v-if="isWrite(msg.write) != 'notice'">
             <md-avatar>            
@@ -33,24 +32,26 @@
                 <div class="addfile-image" v-if="msg.type === 1"><img :src="msg.path" alt=""></div>
                 <span v-if="msg.vhtml" v-html="msg.text"></span>
                 <span v-else>{{ msg.text }}</span>
-                <span v-if="msg.unread" class="unread">
-                  {{ sunUnread(msg.unread) }} 
+                
+                <span v-if="msg.unread !== 0" class="unread">
+                  {{ msg.unread }}
                 </span>
+                <!-- <time v-if="msg.type !== 3" :datetime="msg.today" class="date">{{ msg.today }}</time> -->
                 <md-progress-spinner v-if="sendWaitCheck(i)"  :md-diameter="10" class="md-accent msgLoading" :md-stroke="1" md-mode="indeterminate"></md-progress-spinner>
               </Talkbox>
           </div>
         </div>
     </div>
-    <!-- 메세지 전송 후 로딩바 -->
+    <!-- 이미지 업로드 로딩바 -->
     <div class="upload-progress" v-if="pgr > 0 && pgr < 100">
       <md-progress-spinner class="md-accent" md-mode="determinate" :md-value="pgr"></md-progress-spinner>
     </div>
     <!-- 다른멤버초대 -->
     <transition name="popmember">
-      <Member  :chatMember="chatMember" v-if="invite" />
+      <Member  :chatMember="chatMember.data" v-if="invite" />
     </transition>
     <!-- 메세지토스트 -->
-    <transition name="msgAlarm">
+    <!-- <transition name="msgAlarm">
       <div class="alarmLayer" v-if="tipFlag === true && latest !== false" @click="scrollToEnd('pop');">
         <div class="wrap">
           <md-avatar>            
@@ -60,7 +61,7 @@
           <span class="text">{{latest.text}}</span>
         </div>
       </div>      
-    </transition>
+    </transition> -->
   </div>  
 </template>
 
@@ -142,21 +143,21 @@ import { setTimeout } from 'timers';
       EventBus.$on('imgPreview', path => {
         this.preview = path
       })
-      // 내접속상태 변경
-      this.$store.dispatch('chat/SET_JOIN', {
-        type: 'IN',
-        key: data.key
-      })
 
       // [비정상 접근]새로 고침시 채팅에 속한 멤버 정보가 없으므로 리스트로 보낸다.
-      if (this.member === null) {        
+      if (this.chatMember === null) {        
         this.$router.push('/list')
       } else {
         //this.$run(CHAT.SET_LATEST, data)
         this.$store.dispatch(CHAT.GET_CHAT_DATE, data).then(res => {
           if (res) {
               this.$store.dispatch(CHAT.GET_MESSAGE, data)
-              this.$run(CHAT.GET_OLD_MESSAGE, data)              
+              this.$run(CHAT.GET_OLD_MESSAGE, data)     
+              // 내접속상태 변경
+              this.$store.dispatch('chat/SET_JOIN', {
+                type: 'IN',
+                key: data.key
+              })         
           }
         })
       }  
@@ -242,45 +243,12 @@ import { setTimeout } from 'timers';
                 this.$store.dispatch('dialogAlert', { message: '메세지 전송중 에러 발생' })
               } 
           })
-          
-          
-          // return false;
-
-          // new Promise(resolve => {
-          //     // 이미지 첨부할때
-          //     if (data.addFile) {
-          //       await this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile).then(path => {
-          //         data.path = path;
-          //         data.type = 1;
-          //       })
-          //     } else {
-                
-          //       this.$store('chat/SEND_MESSAGE2', data).then(result => {
-          //         if (result) {
-          //           resolve(true)
-          //         } else {
-          //           resolve(false)
-          //         }
-          //       })                
-          //     }
-          //     this.$store.dispatch('chat/SEND_MESSAGE2', data)
-          // }).then(res => {
-          //   this.sendWait = false;          
-          //   // 프로세스가 순차처리 되었을때
-          //   if (res) {
-          //     EventBus.$emit('sendResult', true) 
-          //     // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.            
-          //     this.scrollToEnd(true);
-          //   } else {
-          //     this.$run('dialogAlert', { message: '메세지 전송중 에러 발생' })
-          //   }      
-          // })
         },
         mappingAvatar(uid) {
           if (this.auth.uid === uid) {
             return this.auth.photoURL
           } else {
-            return this.chatMember[uid].photoURL
+            return this.allMember[uid].photoURL
           }
         },
         mappingUserName(uid) {          
@@ -288,7 +256,7 @@ import { setTimeout } from 'timers';
             return this.auth.displayName
           } else {
             if (uid !== 'admin') {
-              return this.chatMember[uid].displayName
+              return this.allMember[uid].displayName
             } else {
               return uid
             }
@@ -324,10 +292,15 @@ import { setTimeout } from 'timers';
     padding: 0;
   }
   .left{
+    .date{
+      right: 0;
+      margin-right: -70px;
+    }
     .unread{
       right: 0;
       margin-right: -14px;
     }
+    
     .msgLoading{
       right: 0;
       margin-right: -17px;
@@ -335,6 +308,10 @@ import { setTimeout } from 'timers';
   }
   
   .right{
+    .date{
+      left: 0;
+      margin-left: -70px;
+    }
     .unread{
       left: 0;
       margin-left: -14px;
@@ -346,13 +323,20 @@ import { setTimeout } from 'timers';
   }
   .msgLoading{
     position: absolute;
-    top: 5px;
+    top: 25px;
   }
   .unread{    
     position: absolute;    
     font-size: 11px;
-    top: 0;
+    top: 0;    
     color: #ff5252;
+  }
+  .date{
+    position: absolute;    
+    width: 60px;
+    font-size: 11px;
+    bottom: 0;
+    color: #ccc;
   }
   .message-wrap{
     padding-bottom: 150px;

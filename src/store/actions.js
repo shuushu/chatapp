@@ -98,7 +98,7 @@ export default {
   dialogConfirm({ commit }, payload) {
     commit(ROOT.POPUP_CONFIRM, payload)
   },
-  getAlarm({ commit, dispatch }) {
+  getAlarm({ commit }) {
       if (listner) {
         listner.off('value')
       }

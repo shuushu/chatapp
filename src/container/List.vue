@@ -62,17 +62,17 @@
                 roomList: state => state.chat.roomList
             })
         },
-        created () {  
+        created () {            
             // 초대창 닫기
             this.$store.dispatch('invite', false) 
-            
+
             if (this.member) {
               this.getRoomList()
             } else {
               // 현재 방 목록에 참여된 멤버를 확인하기 위해(닉네임 및 정보), 
               // 멤버를 목록을 가져온 후 실행
               this.getMember().then(res => {
-                if (res) {
+                if (res) {                  
                   this.getRoomList()
                 }
               })

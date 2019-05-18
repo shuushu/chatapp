@@ -111,11 +111,7 @@ function isPrivate(payload) {
                   };
                   resolve(roomData.key)
               } else {  // 없으면 신규로 만듬                       
-                  resolve(false)
-                  // roomData.hasRoom = false;
-                  // roomData.key = firebase.database().ref(`myChat/private/${uids[1]}`).push().key;
-                  // firebase.database().ref(`myChat/private/${uids[1]}`).child(uids[0]).set(roomData.key);
-                  // firebase.database().ref(`myChat/private/${uids[0]}`).child(uids[1]).set(roomData.key);
+                  resolve(false)                  
               }
           })
       } else {
