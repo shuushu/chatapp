@@ -1,5 +1,5 @@
 <template>
-  <div id="memberList" class="page" :class="{ invite: chatMember }">
+  <div id="memberList" class="page" :class="{ invite: chatMember }" :style="isWinh">
     <div v-if="isLoading" class="wrap-center">
       <md-progress-spinner :md-diameter="50" md-mode="indeterminate"></md-progress-spinner>
     </div>
@@ -55,16 +55,25 @@
     },
     props: {
         chatMember: {
-            type: Array
+          type: Object
+        },
+        winh: {
+          type: Number,
+          default: null
         }
     },
     computed: {
-      fetchData() {        
-        if (this.chatMember) {
+      fetchData() {  
+        if (this.chatMember) {         
           return this.filter(this.member, this.chatMember)
         } else {
           return this.member
         }        
+      },
+      isWinh() {
+        if (this.winh) {
+          return `height:${this.winh}px`
+        }
       },
       ...mapState({
           auth: state => state.auth,
@@ -76,7 +85,7 @@
       }) 
     },
     created () {  
-      this.getMember()      
+      this.getMember()
     },
     methods: {
         ...mapActions({
@@ -135,10 +144,12 @@
 <style lang="scss">
 #memberList{
   &.invite{
+    position: fixed;
     z-index: 30;
     top: 56px;
     width: 100%;
     right: 0;
+    box-sizing: border-box;
     background: rgba(0, 0, 0, .5);
     > div{
       margin-left: 20%;
@@ -151,7 +162,7 @@
     }
     .btnWrap{
       display: flex;
-      padding: 0 10px 150px 10px;      
+      padding: 0 10px 80px 10px;      
       margin: 0;
       background: #fff;
       .md-accent,

@@ -14,12 +14,12 @@ const mutations = {
 
 const getters = {
   SET_FILTER: () => (member, chatMember) => {
-    let data = JSON.parse(JSON.stringify(member));
-
-    for (let i = 0, size = chatMember.length; i < size; i += 1) {
-      data[chatMember[i]].disabled = true;
+    let temp = JSON.parse(JSON.stringify(member));
+    
+    for(let user in chatMember) {
+      temp[user].disabled = true;
     }
-    return data
+    return temp;
   }
 }
 
@@ -42,7 +42,7 @@ const actions = {
     let { memberList } = this.state.member;
 
     if (memberList) {
-       return true;
+      commit(ROOT.GET_MEMBER_REQ_SUCCESS, payload, { root: true })
     } else {
       commit(ROOT.GET_MEMBER_REQ_WAIT, payload, { root: true })
 

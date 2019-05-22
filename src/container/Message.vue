@@ -48,7 +48,7 @@
     </div>
     <!-- 다른멤버초대 -->
     <transition name="popmember">
-      <Member  :chatMember="chatMember.data" v-if="invite" />
+      <Member :winh="this.$route.params.h" :chatMember="chatMember.data" v-if="invite" />
     </transition>
     <!-- 메세지토스트 -->
     <!-- <transition name="msgAlarm">
@@ -103,6 +103,15 @@ import { setTimeout } from 'timers';
       })
     },
     watch: { 
+      invite(value) {
+        let bodyNode = document.querySelector('body');
+
+        if (value) {
+          bodyNode.style.overflow = 'hidden';
+        } else {
+          bodyNode.removeAttribute('style');
+        }
+      },
       message() {
         setTimeout(() => {
           if (this.latest !== false && this.auth.uid !== this.latest.write) {
@@ -125,6 +134,8 @@ import { setTimeout } from 'timers';
         type: 'OUT',
         key: this.roomkey
       })
+      let bodyNode = document.querySelector('body');
+      bodyNode.removeAttribute('style');
       //this.$run(CHAT.REMOVE_LATEST, this.roomkey)
     },
     created () {
@@ -237,7 +248,7 @@ import { setTimeout } from 'timers';
                 this.sendWait = false;
                 EventBus.$emit('sendResult', true) 
                 // 내가 메세지를 보내었으면 스크롤을 하단으로 보낸다.
-                //this.scrollToEnd(true);
+                this.scrollToEnd(true);
               } else {
                 this.sendWait = 'wait';
                 this.$store.dispatch('dialogAlert', { message: '메세지 전송중 에러 발생' })
@@ -344,8 +355,8 @@ import { setTimeout } from 'timers';
   }
   // 멤버레이어가 나올때
   &.inviteWrap {
-    overflow: hidden;
-    height: 100%;
+    // overflow: hidden;
+    // height: 100%;
     .message-wrap{      
       height: 100%;
       box-sizing: border-box;

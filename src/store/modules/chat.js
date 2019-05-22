@@ -57,7 +57,14 @@ const actions = {
         firebase.database().ref(`myChat/list/${auth.uid}`).on('value', res => {
             let result = res.val();
             if (result) {
-              resolve(result)
+              // 룸리스트 초기 후 데이터 변경이 이루어질 때
+              if (chat.roomList !== null) {
+                for (let key in result) {
+                  result[key].join = chat.roomList[key].join                  
+                }
+                commit('GET_ROOMLIST', result)
+              }
+              resolve(result)              
             } else {
               resolve(false)
             }
