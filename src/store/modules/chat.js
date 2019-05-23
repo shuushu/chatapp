@@ -399,6 +399,7 @@ const actions = {
     // 챗목록 최근 메세지 1건 수정
     for (let user in chatMember.data) {
       await firebase.database().ref(`myChat/list/${user}/${key}/text`).set(text)  
+      await firebase.database().ref(`myChat/list/${user}/${key}/lwrite`).set(write)  
       // 접속하지 않은 멤버에게 알림보내기
       if (chatMember.data[user] === 0) {
         let alarmRef = firebase.database().ref(`myChat/alarm/${user}/${key}`);

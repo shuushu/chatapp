@@ -51,17 +51,17 @@
       <Member :winh="this.$route.params.h" :chatMember="chatMember.data" v-if="invite" />
     </transition>
     <!-- 메세지토스트 -->
-    <!-- <transition name="msgAlarm">
-      <div class="alarmLayer" v-if="tipFlag === true && latest !== false" @click="scrollToEnd('pop');">
+    <transition name="msgAlarm">
+      <div class="alarmLayer" v-if="tipFlag === true && roomList !== false" @click="scrollToEnd('pop');">
         <div class="wrap">
           <md-avatar>            
-            <img :src="chatMember[latest.write].photoURL" :alt="chatMember[latest.write].displayName" />
+            <img :src="allMember[roomList[this.$route.params.id].lwrite].photoURL" :alt="allMember[roomList[this.$route.params.id].lwrite].displayName" />
           </md-avatar>
-          <span class="name">{{chatMember[latest.write].displayName}}</span>
-          <span class="text">{{latest.text}}</span>
+          <span class="name">{{allMember[roomList[this.$route.params.id].lwrite].displayName}}</span>
+          <span class="text">{{roomList[this.$route.params.id].text}}</span>
         </div>
       </div>      
-    </transition> -->
+    </transition>
   </div>  
 </template>
 
@@ -73,7 +73,7 @@ import Member from '@/container/Member.vue'
 import { EventBus } from '@/main'  
 import { yyyymm, isCurrentView } from '@/common/util'
 import { setTimeout } from 'timers';
-  
+let loadOnce = false;
   export default {
     name: 'Message',
     components: { 
@@ -91,7 +91,6 @@ import { setTimeout } from 'timers';
     },
     computed: {
       ...mapState({
-          latest: state => state.chat.latest,
           invite: state => state.invite, // 초대창UI상태 flag
           auth: state => state.auth, // 내정보
           message: state => state.chat.message, // 메세지 Array
@@ -99,6 +98,7 @@ import { setTimeout } from 'timers';
           allMember: state => state.member.memberList, // 모든멤버
           chatMember: state => state.chat.chatMember, // 참여된 멤버
           chatDate: state => state.chat.chatDate, // 메세지 date
+          roomList: state => state.chat.roomList,          
           pgr: state => state.chat.progress // 이미지 로딩 프로그래스
       })
     },
@@ -114,17 +114,20 @@ import { setTimeout } from 'timers';
       },
       message() {
         setTimeout(() => {
-          if (this.latest !== false && this.auth.uid !== this.latest.write) {
-            let currentView = this.scrollToEnd();          
+          if (this.loadOnce !== false && this.auth.uid !== this.roomList.lwrite) {
+            let currentView = this.scrollToEnd();
+
             // 이전 메세지를 보고 있을 때
             if (currentView === false) {
               this.tipFlag = true
+
               setTimeout(() => {
                 this.tipFlag = false
-              }, 3000)
+              }, 5000)
             }
-          } 
-        }, 300)       
+          }
+          this.loadOnce = true;
+        }, 1000)       
       }   
     },
     destroyed() {
@@ -177,7 +180,7 @@ import { setTimeout } from 'timers';
       if (!this.scrollFlag) {          
           setTimeout(() => {
             this.scrollToEnd(true);
-          }, 1000)
+          }, 600)
           this.scrollFlag = true
         }      
     },
@@ -450,32 +453,33 @@ import { setTimeout } from 'timers';
     .wrap{
       position: relative;
       display: inline-block;
-      max-width: 90%;
+      
       border: solid 1px #ccc;
       background-color: #fff;
       border-radius: 5px;
-      padding: 5px 10px 5px 100px;
+      padding: 5px 10px 5px 60px;
+      text-align: left;
     }
     .md-avatar{
       position: absolute;
       left: 5px;
       top: 5px;
     }
-    .name{
-      position: absolute;
-      left: 50px;
-      display: block;
+    .name{      
+      display: inline-block;
       line-height: 40px;
       height: 40px;
+      vertical-align: middle;
     }
     .text{
-      display: block;
+      display: inline-block;
       text-overflow: ellipsis;
+      vertical-align: middle;
       white-space: nowrap;
-      overflow: hidden;
-      width: 100%;
+      overflow: hidden;      
       height: 40px;
       line-height: 40px;
+      padding: 0 10px;
     }
 }
 // animate
