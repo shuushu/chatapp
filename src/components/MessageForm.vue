@@ -64,25 +64,27 @@ import { yyyymm } from '@/common/util'
         sendMsg(event) {
           event.preventDefault();
           
-          let data = {
-            text: this.userWrite,
-            today: yyyymm(new Date()),
-            type: 0,
-          };
-          if(this.addFile) {
-            data.addFile = this.addFile
-          }
+          if (this.sendLoad === false) {
+            let data = {
+              text: this.userWrite,
+              today: yyyymm(new Date()),
+              type: 0,
+            };
+            if(this.addFile) {
+              data.addFile = this.addFile
+            }
 
-          if (this.userWrite === '') {
-              let alert = {
-                message: '메세지를 입력해주세요'
-              }
-              this.$run('dialogAlert', alert)
-              return true;
-          }
-          // 버튼 비활성화 flag
-          this.sendLoad = true          
-          EventBus.$emit('sendMessage', data)
+            if (this.userWrite === '') {
+                let alert = {
+                  message: '메세지를 입력해주세요'
+                }
+                this.$store.commit('POPUP_ALERT', alert)
+                return true;
+            }
+            // 버튼 비활성화 flag
+            this.sendLoad = true          
+            EventBus.$emit('sendMessage', data)
+          }    
         },
         sendcomplete() {
           this.userWrite = ''

@@ -3,7 +3,7 @@ import rootMutations from '@/store/mutations'
 import { put, call } from "vuex-saga";
 import ROOT, { CHAT } from '@/store/namespace'
 import { yyyymm, urlExp, urlify } from '@/common/util'
-import { reject } from 'q';
+
 // 다음은 live리스너 변수
 let messageOn,
     chatDateKey, // 챗방 날짜
@@ -46,50 +46,55 @@ const mutations = {
 
 
 const actions = {
-  async GET_ROOMLIST({ commit, dispatch }) {
-    let { auth, chat } = this.state;
+  // 1) 룸리스트
+  // 1-1) 자주가능방 등록&해제
+  SET_FAV_ROOM({}, payload) {
+    let { key, state } = payload;
+    firebase.database().ref(`myChat/list/${this.state.auth.uid}/${key}/state`).set(state)
+  },
+  // 1-2) 방가져오기
+  GET_ROOMLIST({ commit, dispatch }, payload) {
+    let { auth, chat, member } = this.state;
+    let ss = payload || member.memberList;
 
     // vuex에 저장되면 다음부턴 실행하지 않음
     if (chat.roomList === null) {
-      commit(ROOT.GET_ROOMLIST_REQ_WAIT, null, { root: true })  
+        commit(ROOT.GET_ROOMLIST_REQ_WAIT, null, { root: true }) 
       
-      let getRoomData = await new Promise(resolve => {
+      
         firebase.database().ref(`myChat/list/${auth.uid}`).on('value', res => {
             let result = res.val();
             if (result) {
-              // 룸리스트 초기 후 데이터 변경이 이루어질 때
-              if (chat.roomList !== null) {
-                for (let key in result) {
-                  result[key].join = chat.roomList[key].join                  
-                }
-                commit('GET_ROOMLIST', result)
+
+              for (let roomkey in result) {
+                result[roomkey].join = [];
+
+                firebase.database().ref(`myChat/join/${roomkey}/`).once('value').then(snap => {
+                  let data = snap.val();
+                  if (data){
+                    for (let jmember in data) {
+                      result[roomkey].join.push(ss[jmember])
+                    }
+                  }
+                });        
               }
-              resolve(result)              
+
+              commit('GET_ROOMLIST', result)
+              commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
             } else {
-              resolve(false)
+              commit('GET_ROOMLIST', null)
+              commit(ROOT.GET_ROOMLIST_REQ_FAIL, null, { root: true })
             }
         })
-      })
-      if (getRoomData) {
-        for (let key in getRoomData) {
-          await dispatch('GET_CURRENT_MEMBER', key).then(res => {
-            getRoomData[key].join = res.data          
-          })          
-        }
-        await commit('GET_ROOMLIST', getRoomData)
-        await commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
-      } else {
-        commit('GET_ROOMLIST', result)
-        commit(ROOT.GET_ROOMLIST_REQ_FAIL, null, { root: true })
-      }
     } else {
       commit(ROOT.GET_ROOMLIST_REQ_SUCCESS, null, { root: true })
     }
   },
+  // 1-3) 방 생성
   CREATE_ROOM({}, payload) {
       let { member, key } = payload,             
           roomListData = {                          
-              state: 1, // 상태: 0 즐겨찾기, 1 일반
+              state: 0, // 상태: 0 일반, 1 즐겨찾기
               text: '방이 개설됨'
           },
           myStorage = JSON.parse(localStorage.getItem('myChatMessage')),
@@ -139,35 +144,58 @@ const actions = {
         resolve(key)
       })
   },
-  async DELETE_ROOM({ commit, dispatch }, payload) {
-
-  },
-  // 슈퍼권한 > 관련된 멤버 모두 삭제됨
-  async SUPER_DELETE_ROOM({ commit, dispatch }, payload) {
-    let { key, join } = payload;
-    
-    for(let item in join) { // item: join userUID
-      // #알람 삭제
-      await firebase.database().ref(`myChat/alarm/${item}/${key}`).set(null)
-      // #1:1대화 삭제: 룸리스트에 연관된 1:1대화 멤버 삭제
-      // - 1:1대화 내역 조회
-      await firebase.database().ref(`myChat/private/${item}`).once('value', res => {        
-        let data = res.val() //  1:1 대화한 멤버 uid
-        if (data) {
-          for (let pmember in data) {            
-            if (join[pmember]) {
-              firebase.database().ref(`myChat/private/${item}/${join[pmember].uid}`).set(null)
-            }            
-          }
-        }        
-      })
-      // #룸 리스트 삭제
-      await firebase.database().ref(`myChat/list/${item}/${key}`).set(null)
+  // 1-4) 방 삭제
+  async DELETE_ROOM({ dispatch }, params) {
+    let key = params;
+    let myUID = this.state.auth.uid;
+    let allMember = this.state.member.memberList;
+    let join = await firebase.database().ref(`myChat/join/${key}/`).once('value').then(snap => {    
+      return snap.val();
+    });
+    if (!join) {
+      dispatch('dialogAlert', { message: `삭제 할 수 없음 myChat/join/${key}/ 문제 발생` }, { root: true })
+      return false;
     }
-    // #룸 메세지 삭제
-    await firebase.database().ref(`myChat/room/${key}`).set(null)
 
-    await dispatch('dialogAlert', { message: '선택한 방 삭제 완료' }, { root: true })
+    let jArr = Object.keys(join);
+    
+    // 방에 나혼자만 남겨질 경우
+    if (jArr.length <= 1) {
+      firebase.database().ref(`myChat/room/${key}`).set(null)      
+    } else {
+      const noticeText = `${allMember[myUID].displayName}님이 방을 나갔습니다.`;
+
+      // 채팅방 메세지 공지
+      await firebase.database().ref(`myChat/room/${key}/item`).push({
+        write: 'admin',
+        text: noticeText,
+        unread: 0,
+        type: 3 // 메세지타입: 0 일반 1 이미지 2 파일 3공지
+      });
+
+      
+      for (let i = 0; i < jArr.length; i += 1) {
+        // 삭제 리스트가 1:1대화 인가?
+        if (jArr.length <= 2) {          
+          firebase.database().ref(`myChat/private/${myUID}/${jArr[i]}`).set(null)
+          firebase.database().ref(`myChat/private/${jArr[i]}/${myUID}`).set(null)
+        }
+        // 조인된 타멤버들에게
+        if (jArr[i] !== myUID) {              
+          // 룸 리스트 한줄알림
+          await firebase.database().ref(`myChat/list/${jArr[i]}/${key}/text`).set(noticeText)
+        }
+      }
+    }
+
+
+    await firebase.database().ref(`myChat/list/${myUID}/${key}`).set(null)
+    // #알람 삭제    
+    firebase.database().ref(`myChat/alarm/${myUID}/${key}`).set(null);
+    // room Join삭제
+    firebase.database().ref(`myChat/join/${key}/${myUID}`).set(null);
+  
+    dispatch('dialogAlert', { message: '선택한 방 삭제 완료' }, { root: true })
   },
   /*
     @date client 오늘 날짜 { String }
@@ -231,7 +259,7 @@ const actions = {
       localStorage.setItem('myChatMessage', JSON.stringify(myStorage));
 
       // 챗방 접속 상태 감시
-      await dispatch('GET_CURRENT_MEMBER', key)
+      dispatch('GET_CURRENT_MEMBER', key)
       commit(ROOT.GET_MESSAGE_REQ_WAIT, null, { root: true })
       // [알람] 읽음으로 처리
       firebase.database().ref(`myChat/alarm/${uid}/${key}`).set(0)
@@ -386,10 +414,8 @@ const actions = {
         // 메세지 저장
         firebase.database().ref(`myChat/room/${key}/item`).set(message, err => {
           if (err === null) {
-            result = true;
             resolve(true);            
           } else {
-            result = false;
             resolve(false);            
           }
         })
@@ -398,12 +424,12 @@ const actions = {
     
     // 챗목록 최근 메세지 1건 수정
     for (let user in chatMember.data) {
-      await firebase.database().ref(`myChat/list/${user}/${key}/text`).set(text)  
-      await firebase.database().ref(`myChat/list/${user}/${key}/lwrite`).set(write)  
+       firebase.database().ref(`myChat/list/${user}/${key}/text`).set(text)  
+       firebase.database().ref(`myChat/list/${user}/${key}/lwrite`).set(write)  
       // 접속하지 않은 멤버에게 알림보내기
       if (chatMember.data[user] === 0) {
         let alarmRef = firebase.database().ref(`myChat/alarm/${user}/${key}`);
-        await alarmRef.once('value', snap => {
+         alarmRef.once('value', snap => {
           if (snap) {
             alarmRef.set(snap.val() + 1)
           }
@@ -452,7 +478,7 @@ const actions = {
         resolve(true)
       })
     })
-  }
+  },  
 };
 
 

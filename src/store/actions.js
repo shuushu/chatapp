@@ -113,6 +113,11 @@ export default {
             value.total = total
 
             commit(ROOT.ALARM_ON, value)
+        } else {
+          commit(ROOT.ALARM_ON, {
+            item: {},
+            total: 0
+          })
         }
     })
   },

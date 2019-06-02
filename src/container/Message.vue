@@ -72,8 +72,11 @@ import Talkbox from '@/components/Talkbox.vue'
 import Member from '@/container/Member.vue'
 import { EventBus } from '@/main'  
 import { yyyymm, isCurrentView } from '@/common/util'
-import { setTimeout } from 'timers';
+import { setTimeout, clearTimeout } from 'timers';
+
+let timer;
 let loadOnce = false;
+
   export default {
     name: 'Message',
     components: { 
@@ -112,19 +115,34 @@ let loadOnce = false;
           bodyNode.removeAttribute('style');
         }
       },
+      chatMember() {
+        // 1:1방에서 상대방이 방삭제하면 혼자만 남기때문에 메세지폼을 쓸 수 없게 한다.      
+        if (this.chatMember) {
+          if (Object.keys(this.chatMember.data).length <= 1) {
+              let node = document.getElementById('footer');        
+              node.style.display = 'none';
+          } 
+        } 
+      },
       message() {
         setTimeout(() => {
-          if (this.loadOnce !== false && this.auth.uid !== this.roomList.lwrite) {
-            let currentView = this.scrollToEnd();
+          if (this.roomList) {
+              if (this.loadOnce !== false && this.auth.uid !== this.roomList.lwrite) {
+                let currentView = this.scrollToEnd();                
 
-            // 이전 메세지를 보고 있을 때
-            if (currentView === false) {
-              this.tipFlag = true
+                // 이전 메세지를 보고 있을 때
+                if (currentView === false) {                  
+                  this.tipFlag = true;
 
-              setTimeout(() => {
-                this.tipFlag = false
-              }, 5000)
-            }
+                  if (timer) {
+                    clearTimeout(timer)
+                  }
+                  
+                  timer = setTimeout(() => {
+                    this.tipFlag = false
+                  }, 5000)
+                }
+              }
           }
           this.loadOnce = true;
         }, 1000)       
@@ -139,6 +157,9 @@ let loadOnce = false;
       })
       let bodyNode = document.querySelector('body');
       bodyNode.removeAttribute('style');
+
+      let node = document.getElementById('footer');        
+      node.removeAttribute('style');
       //this.$run(CHAT.REMOVE_LATEST, this.roomkey)
     },
     created () {
@@ -160,29 +181,30 @@ let loadOnce = false;
 
       // [비정상 접근]새로 고침시 채팅에 속한 멤버 정보가 없으므로 리스트로 보낸다.
       if (this.chatMember === null) {        
-        this.$router.push('/list')
+        //this.$router.push('/list')
       } else {
         //this.$run(CHAT.SET_LATEST, data)
-        this.$store.dispatch(CHAT.GET_CHAT_DATE, data).then(res => {
+
+      }
+      this.$store.dispatch(CHAT.GET_CHAT_DATE, data).then(res => {
           if (res) {
-              this.$store.dispatch(CHAT.GET_MESSAGE, data)
-              this.$run(CHAT.GET_OLD_MESSAGE, data)     
-              // 내접속상태 변경
-              this.$store.dispatch('chat/SET_JOIN', {
+            this.$store.dispatch(CHAT.GET_MESSAGE, data)
+            this.$run(CHAT.GET_OLD_MESSAGE, data)
+            // 내접속상태 변경
+            this.$store.dispatch('chat/SET_JOIN', {
                 type: 'IN',
                 key: data.key
-              })         
+            });
           }
-        })
-      }  
+      })
     },
     updated() {
       if (!this.scrollFlag) {          
-          setTimeout(() => {
-            this.scrollToEnd(true);
-          }, 600)
-          this.scrollFlag = true
-        }      
+        setTimeout(() => {
+          this.scrollToEnd(true);
+        }, 600)
+        this.scrollFlag = true
+      }
     },
     beforeRouteEnter (to, from, next) {
       /* 

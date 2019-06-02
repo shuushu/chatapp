@@ -13,15 +13,15 @@
         </md-empty-state>
       </div>
       <md-list v-else>
-        <md-list-item class="md-triple-line md-dense"  v-for="(items, key) in roomList" :key="key" @click="goToMessage(key)">
+        <md-list-item  :class="hasClass(items.state)" v-for="(items, key) in roomList" :key="key" @click="goToMessage(key)">
           <md-avatar>
-            <img :src="member[z].photoURL" v-for="(users, z) in items.join" :key="`img-${z}`" :alt="member[z].displayName">
+            <img :src="items.join[z].photoURL" v-for="(users, z) in items.join" :key="`img-${items.join[z].uid}`" :alt="items.join[z].displayName">
           </md-avatar>
 
           <div class="md-list-item-text">
             <span class="join-member">
               참여자: 
-              <span class="join-item" v-for="(users, i) in items.join" :key="`join-${i}`">{{ member[i].displayName }}</span>
+              <span class="join-item" v-for="(users, i) in items.join" :key="`join-${items.join[i].uid}`">{{ items.join[i].displayName }}</span>
             </span>
             <span class="title">{{ items.text }}</span>            
           </div>
@@ -30,10 +30,21 @@
               <md-icon>notifications</md-icon>
             </md-button>          
           </md-badge>
-          <!-- 방삭제 -->
-          <md-button class="md-icon-button delete" @click.stop="removeRoom(key)">
-            <md-icon>close</md-icon>
-          </md-button>
+          <div class="util">
+            <div class="nth1">
+              <!-- 방즐겨찾기 -->          
+              <md-button class="md-icon-button delete" @click.stop="favRoom({key, state: items.state})">
+                <md-icon>{{ items.state === 0 ? 'favorite_border' : 'favorite' }}</md-icon>
+              </md-button>
+            </div>
+            <div class="nth2">
+              <!-- 방삭제 -->          
+              <md-button class="md-icon-button delete" @click.stop="removeRoom(key)">
+                <md-icon>close</md-icon>
+              </md-button>
+            </div>
+          </div>
+
 
 
         </md-list-item>
@@ -60,7 +71,12 @@
                 isLoading: state => state.ready,
                 member: state => state.member.memberList,
                 roomList: state => state.chat.roomList
-            })
+                
+            }),
+            hasClass: () => (flag) => {
+              const classNames = 'md-triple-line md-dense'
+              return Number(flag) === 0 ? `${classNames}` :  `${classNames} fav`
+            }
         },
         created () {            
             // 초대창 닫기
@@ -71,9 +87,9 @@
             } else {
               // 현재 방 목록에 참여된 멤버를 확인하기 위해(닉네임 및 정보), 
               // 멤버를 목록을 가져온 후 실행
-              this.getMember().then(res => {
-                if (res) {                  
-                  this.getRoomList()
+              this.getMember().then(res => {              
+                if (res) {               
+                  this.getRoomList(res)
                 }
               })
             }
@@ -90,13 +106,17 @@
             removeRoom(key) {
               this.confirm({
                 name: '방삭제',
-                message: '선택된 방을 삭제 하시겠습니까?',
+                message: '선택된 방을 삭제 하시겠습니까? 삭제하면 대화내역을 볼 수 없습니다.',
                 action: () => {
                   let { join } = this.roomList[key]
-                  this.$store.dispatch('chat/DELETE_ROOM', { key: key, join })
+                  this.$store.dispatch('chat/DELETE_ROOM', key)
                 }
                 // end action                
               })
+            },
+            favRoom(params) {
+              params.state = Number(params.state) === 0 ? 1 : 0;
+              this.$store.dispatch('chat/SET_FAV_ROOM', params)
             }
         }
     }
@@ -141,8 +161,14 @@
     .title {
       margin: 5px 0 0 0;
     }
-
+    .md-list-item-content{
+      padding-right: 80px;
+    }
     .md-list-item{
+      order: 1;
+      &.fav{
+        order: -1;
+      }
       &::after{
         content: '';
         width: 98%;
@@ -151,14 +177,33 @@
         background-color: #ccc;
         margin: 0 auto;
       }
+      .md-ripple{
+        position: relative;        
+      }
+      .util{
+        position: absolute;
+        right: 0;
+        top: 0;
+        display: flex;
+        height: 100%;
+        > div{
+          justify-content: center;
+          align-items: center;
+          display: flex;
+        }
+        .delete{
+          position: relative;
+          z-index: 10;
+          text-align: center;
+        }
+      }
+    }
+    .md-icon-button{      
+      margin: 0;
     }
     .md-list-item-container{
       padding: 10px 0;
     }
-    .delete{
-      position: relative;
-      z-index: 10;
-      margin-right: -5px;
-    }
+
   }
 </style>
