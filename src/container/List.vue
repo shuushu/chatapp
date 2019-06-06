@@ -3,7 +3,7 @@
     <div v-if="isLoading" class="wrap-center">
       <md-progress-spinner :md-diameter="50" md-mode="indeterminate"></md-progress-spinner>
     </div>
-    <div v-else>
+    <div>
       <div v-if="roomList === null" class="md-empty-state-wrap">
         <md-empty-state
                 class="md-primary"

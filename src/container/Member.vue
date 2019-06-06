@@ -28,10 +28,10 @@
         </div>
       </md-list>
       <div :class="{ btnWrap: chatMember }">
-          <md-button v-if="checkArr.length > 0" class="join md-raised md-accent" @click="memberJoin()">
+          <md-button v-if="checkArr.length > 0" class="join md-raised md-accent" @click="memberJoin">
             <md-icon class="md-primary">people</md-icon> JOIN
           </md-button>
-          <md-button v-if="chatMember" class="join md-raised md-primary" @click="toggle()">
+          <md-button v-if="chatMember" class="join md-raised md-primary" @click="toggle">
             <md-icon class="md-primary">cancel</md-icon> cancel
           </md-button>
       </div>
@@ -49,8 +49,7 @@
     name: 'Member',
     data () {
       return {        
-          checkArr: [],
-          temp: null      
+          checkArr: []
       }
     },
     props: {
@@ -99,13 +98,16 @@
             // 채팅방에서 초대할때
             if(this.chatMember) {
               this.$store.dispatch('dialogAlert', { message: '초대하였습니다.' })
-              this.checkArr = this.checkArr.concat(this.chatMember)
+              
+              for (let i in this.chatMember) {
+                this.checkArr.push(i)
+              }
             } else {
               // 내 uid 추가              
               this.checkArr.push(this.auth.uid);
             }
    
-            this.setJoin(this.checkArr).then(roomKey => {                
+            this.setJoin(this.checkArr).then(roomKey => {              
                 this.$router.push({
                   name: 'message',
                   params: {
@@ -125,11 +127,11 @@
                     if (this.member === null) {        
                       this.$router.push('/list')
                     } else {
-                      this.$run(CHAT.GET_CHAT_MEMBER, data)
-                      this.$run(CHAT.GET_CHAT_DATE, data).then(res => {
+                      //this.$store.dispatch(CHAT.GET_CHAT_MEMBER, data)                      
+                      this.$store.dispatch(CHAT.GET_CHAT_DATE, data).then(res => {
                         if (res) {
-                            this.$run(CHAT.GET_MESSAGE, data)
-                            this.$run(CHAT.GET_OLD_MESSAGE, data)
+                            this.$store.dispatch(CHAT.GET_MESSAGE, data)
+                            this.$store.dispatch(CHAT.GET_OLD_MESSAGE, data)
                             this.toggle();
                         }
                       })

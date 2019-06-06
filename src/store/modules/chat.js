@@ -110,6 +110,7 @@ const actions = {
           firebase.database().ref(`myChat/private/${member[0]}`).child(member[1]).set(key);
         }
 
+
         // 각 멤버들에게 챗리스트 생성시킨다
         for (let i = 0; i < member.length; i += 1) {
             firebase.database().ref(`myChat/list/${member[i]}`).child(key).set(roomListData);
@@ -145,7 +146,7 @@ const actions = {
       })
   },
   // 1-4) 방 삭제
-  async DELETE_ROOM({ dispatch }, params) {
+  async DELETE_ROOM({ commit, dispatch }, params) {
     let key = params;
     let myUID = this.state.auth.uid;
     let allMember = this.state.member.memberList;
@@ -156,7 +157,7 @@ const actions = {
       dispatch('dialogAlert', { message: `삭제 할 수 없음 myChat/join/${key}/ 문제 발생` }, { root: true })
       return false;
     }
-
+        
     let jArr = Object.keys(join);
     
     // 방에 나혼자만 남겨질 경우
@@ -194,7 +195,7 @@ const actions = {
     firebase.database().ref(`myChat/alarm/${myUID}/${key}`).set(null);
     // room Join삭제
     firebase.database().ref(`myChat/join/${key}/${myUID}`).set(null);
-  
+      
     dispatch('dialogAlert', { message: '선택한 방 삭제 완료' }, { root: true })
   },
   /*

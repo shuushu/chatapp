@@ -24,5 +24,6 @@ export const TYPE = [
   'GET_MESSAGE',
   'GET_OLD_MESSAGE',
   'SET_JOIN',
-  'SEND_MESSAGE'
+  'SEND_MESSAGE',
+  'DELETE_ROOM'
 ];
