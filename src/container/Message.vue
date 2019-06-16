@@ -66,7 +66,7 @@
 </template>
 
 <script>
-import { mapState, mapActions } from 'vuex'
+import { mapState } from 'vuex'
 import { CHAT } from '@/store/namespace'
 import Talkbox from '@/components/Talkbox.vue'
 import Member from '@/container/Member.vue'
@@ -74,9 +74,7 @@ import { EventBus } from '@/main'
 import { yyyymm, isCurrentView } from '@/common/util'
 import { setTimeout, clearTimeout } from 'timers';
 
-let timer;
-let loadOnce = false;
-
+  let timer;
   export default {
     name: 'Message',
     components: { 
@@ -85,6 +83,7 @@ let loadOnce = false;
     },
     data () {
       return {
+        loadOnce: false,
         tipFlag: false,
         roomkey: null,
         scrollFlag: false,
@@ -181,7 +180,7 @@ let loadOnce = false;
 
       // [비정상 접근]새로 고침시 채팅에 속한 멤버 정보가 없으므로 리스트로 보낸다.
       if (this.chatMember === null) {        
-        //this.$router.push('/list')
+        this.$router.push('/list')
       } else {
         //this.$run(CHAT.SET_LATEST, data)
 
@@ -258,13 +257,12 @@ let loadOnce = false;
 
           data.key = this.$route.params.id
           data.write = this.auth.uid 
-          
           // 이미지 첨부할때
           if (data.addFile) {
             data.path = this.preview;
             data.type = 1;
             EventBus.$emit('sendResult', true) 
-            // await this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile)
+            this.$store.dispatch(CHAT.ADD_IMAGE, data.addFile)
           }
           // 뷰로직
           await this.$store.dispatch('chat/SEND_MESSAGE2', data).then(res => {

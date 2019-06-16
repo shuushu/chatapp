@@ -50,15 +50,17 @@ const router = new VueRouter({
 router.beforeEach((to, from, next) => {
     firebase.auth().onAuthStateChanged(user => {        
       if (user) {
-        let { uid, email, displayName, photoURL } = user;
-        photoURL = photoURL || 'http://placehold.it/60x60';
-        displayName = displayName || email;
-
+        let { uid } = user;
         // session init 
         // 스토어에 세션값이 저장되면 그 후 실행 하지 않음
         if (store.state.auth === null) {
-          store.commit('SET_AUTH',  { uid, email, displayName, photoURL })
-          store.dispatch('getAlarm')
+          firebase.database().ref('myChat/users').child(uid).once('value').then(res => {
+            let { uid, email, displayName, photoURL } = res.val()
+            if (res.val()) {
+              store.commit('SET_AUTH',  { uid, email, displayName, photoURL })
+              store.dispatch('getAlarm')
+            }
+          })
         }
 
         if (to.name === 'login') {

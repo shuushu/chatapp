@@ -25,11 +25,17 @@ export default {
       commit(ROOT.LOGIN_EMAIL_REQ_SUCCESS)
     })
   },
-  createMailID({ commit, dispatch }, payload) {
-    let { id, pw, name } = payload;
-    commit(ROOT.CREATE_AUTH_REQ_WAIT)
+  async createMailID({ commit, dispatch }, payload) {
+    let { id, pw, name, thumb } = payload;
+    let photo = null;
 
-    firebase.auth().createUserWithEmailAndPassword(id, pw).catch(error => {
+    commit(ROOT.CREATE_AUTH_REQ_WAIT)
+    // 썸네일이 등록되면...
+    if (thumb) {
+      photo = await dispatch('chat/ADD_IMAGE', thumb)
+    }
+
+    await firebase.auth().createUserWithEmailAndPassword(id, pw).catch(error => {
         commit(ROOT.CREATE_AUTH_REQ_FAIL)
         dispatch('dialogAlert', {
           message: ERROR[error.code]
@@ -39,14 +45,13 @@ export default {
         if (result) {
           let { uid } = result.user,
               userData = {};
-
+              
           userData[uid] = {
             email: id,
             displayName: name,
-            photoURL: 'http://placehold.it/60x60',
+            photoURL: photo || 'http://placehold.it/60x60',
             uid: uid
           };
-
           firebase.database().ref('myChat/users').update(userData);
           commit(ROOT.CREATE_AUTH_REQ_SUCCESS);
         }

@@ -56,7 +56,7 @@
 
 <script>
     import { mapState, mapActions } from 'vuex'
-    import ROOT, { CHAT, MEMBER } from '@/store/namespace'
+    import { CHAT, MEMBER } from '@/store/namespace'
     
     export default {
         name: 'List',
@@ -108,7 +108,6 @@
                 name: '방삭제',
                 message: '선택된 방을 삭제 하시겠습니까? 삭제하면 대화내역을 볼 수 없습니다.',
                 action: () => {
-                  let { join } = this.roomList[key]
                   this.$store.dispatch('chat/DELETE_ROOM', key)
                 }
                 // end action                

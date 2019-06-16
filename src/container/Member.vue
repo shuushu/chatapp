@@ -1,5 +1,5 @@
 <template>
-  <div id="memberList" class="page" :class="{ invite: chatMember }" :style="isWinh">
+  <div id="memberList" class="page" :class="{ invite: chatMember }" :style="`height:${this.winh}px`">
     <div v-if="isLoading" class="wrap-center">
       <md-progress-spinner :md-diameter="50" md-mode="indeterminate"></md-progress-spinner>
     </div>
@@ -68,11 +68,6 @@
         } else {
           return this.member
         }        
-      },
-      isWinh() {
-        if (this.winh) {
-          return `height:${this.winh}px`
-        }
       },
       ...mapState({
           auth: state => state.auth,
