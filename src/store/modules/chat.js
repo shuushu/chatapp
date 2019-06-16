@@ -53,7 +53,7 @@ const actions = {
     firebase.database().ref(`myChat/list/${this.state.auth.uid}/${key}/state`).set(state)
   },
   // 1-2) 방가져오기
-  GET_ROOMLIST({ commit, dispatch }, payload) {
+  GET_ROOMLIST({ commit }, payload) {
     let { auth, chat, member } = this.state;
     let ss = payload || member.memberList;
 
@@ -146,7 +146,7 @@ const actions = {
       })
   },
   // 1-4) 방 삭제
-  async DELETE_ROOM({ commit, dispatch }, params) {
+  async DELETE_ROOM({ dispatch }, params) {
     let key = params;
     let myUID = this.state.auth.uid;
     let allMember = this.state.member.memberList;
@@ -303,7 +303,7 @@ const actions = {
                 myStorage[key][today] = result;
               }
               
-              commit('GET_MESSAGE', result)
+              commit('GET_MESSAGE', result)              
               localStorage.setItem('myChatMessage', JSON.stringify(myStorage));              
           } else {
               commit(ROOT.GET_MESSAGE_REQ_FAIL, null, { root: true })
@@ -395,50 +395,42 @@ const actions = {
     // 클라이언트화면에 먼저 보여줌
     commit(CHAT.GET_MESSAGE, message, { root: true })
     
-    result = await new Promise(resolve => {
-      // 자정이 될때 날짜가 변경하면서 이전 메세지는 old메세지로 보내고
-      // 신규 메세지를 생성시킨다 
-      if (chatDate !== today) {
-        let noti = [{
-              text: today,
-              type: 3,
-              unread: 0,              
-              write: 'admin'
-            }];                        
+    // 자정이 될때 날짜가 변경하면서 이전 메세지는 old메세지로 보내고
+    // 신규 메세지를 생성시킨다 
+    if (chatDate !== today) {
+      let noti = [{
+            text: today,
+            type: 3,
+            unread: 0,              
+            write: 'admin'
+          }];                        
 
-        firebase.database().ref(`myChat/room/${key}/date`).set(today)        
-        firebase.database().ref(`myChat/room/${key}/item`).set({ ...noti, ...message })
+      firebase.database().ref(`myChat/room/${key}/date`).set(today)        
+      firebase.database().ref(`myChat/room/${key}/item`).set({ ...noti, ...message })
 
-        resolve(true);
-      } else {
-        // 서버 저장된 날짜와 메세지 전송시 날짜가 같을때
-        // 메세지 저장
-        firebase.database().ref(`myChat/room/${key}/item`).set(message, err => {
-          if (err === null) {
-            resolve(true);            
-          } else {
-            resolve(false);            
-          }
-        })
-      }
-    })
-    
+      resolve(true);
+    } else {
+      // 서버 저장된 날짜와 메세지 전송시 날짜가 같을때
+      // 메세지 저장
+      firebase.database().ref(`myChat/room/${key}/item`).set(message)
+    }
+
     // 챗목록 최근 메세지 1건 수정
     for (let user in chatMember.data) {
-       firebase.database().ref(`myChat/list/${user}/${key}/text`).set(text)  
-       firebase.database().ref(`myChat/list/${user}/${key}/lwrite`).set(write)  
+        firebase.database().ref(`myChat/list/${user}/${key}/text`).set(text)  
+        firebase.database().ref(`myChat/list/${user}/${key}/lwrite`).set(write)  
       // 접속하지 않은 멤버에게 알림보내기
       if (chatMember.data[user] === 0) {
         let alarmRef = firebase.database().ref(`myChat/alarm/${user}/${key}`);
-         alarmRef.once('value', snap => {
+          alarmRef.once('value', snap => {
           if (snap) {
             alarmRef.set(snap.val() + 1)
           }
         })
       }      
-    }    
-    
-    return result;
+    }
+
+    return true;
   },
   ADD_IMAGE({ commit }, payload) {
       return new Promise(resolve => {

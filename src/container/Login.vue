@@ -2,8 +2,23 @@
     <form id="login" novalidate class="md-layout" @submit.prevent="login">
       <md-card class="md-layout-item md-size-50 md-small-size-100">
         <md-card-header>
-          <div class="md-title"><md-icon>lock</md-icon> LOGIN</div>
+          <div class="md-title"><md-icon>lock</md-icon> 
+            {{ isCreate ? 'CREATE' : 'LOGIN' }}
+          </div>
         </md-card-header>
+        
+        <div>
+        <transition name="fade">
+          <div class="avatar" v-if="isCreate" >
+              <md-avatar class="md-large">
+                
+                <img :src="imgPath" v-if="imgPath" alt="People">
+                <span  v-else>add Image</span>
+                <input type="file" class="file-hidden" @change="handleChange" accept="image/*">        
+              </md-avatar>              
+          </div>
+        </transition>
+        </div>
 
         <md-card-content>
           <md-field :class="getValidationClass('id')">
@@ -61,12 +76,14 @@
     mixins: [validationMixin],
     data: () => ({
       isCreate: false,
+      addFile: null,
       form: {
         name: null,
         id: null,
         pw: null
       },
-      userSaved: false
+      userSaved: false,
+      imgPath: null
     }),
     computed: mapState({
       isLoading: state => state.ready
@@ -104,7 +121,7 @@
         if (!this.$v.$invalid) {
           let { id, pw, name } = this.form
 
-          this.createMailID({ id, pw, name })        
+          this.createMailID({ id, pw, name, thumb: this.addFile })        
         }
       },
       getValidationClass (fieldName) {
@@ -133,6 +150,17 @@
         if (!this.$v.$invalid) {
           this.loginEmail({ id, pw })
         }
+      },
+      handleChange(e) {
+        if (e.target.value) {
+          let reader = new FileReader();
+          reader.readAsDataURL(e.target.files[0]);
+
+          reader.onload = () => {
+            this.imgPath = reader.result
+          }
+          this.addFile = e.target.files[0];          
+        }
       }
     }
   }
@@ -140,8 +168,33 @@
 
 <style lang="scss" scoped>
 #login{
+
   z-index: 29;
   background: #efefef;
+  .md-card-header{
+    padding-bottom: 0;
+  }
+  .avatar{
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 64px;
+    height: 64px;
+    overflow: hidden;
+    input[type='file'] {
+      position: absolute;
+      height: 64px;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .md-avatar{
+      border: 1px solid #ccc;
+      font-size: 12px;
+    }
+  }
 }
   .md-title{
     .md-icon{color: #000;}
@@ -161,4 +214,11 @@
     align-items: center;
     justify-content: center;
   }
+.fade-enter-active, .fade-leave-active {
+transition: opacity .5s;
+}
+.fade-enter, .fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+  opacity: 0;
+}
+
 </style>
