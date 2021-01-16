@@ -70,9 +70,8 @@ npm run storybook
 
 ## ERD
 
-
 ![chat erd](./dist/chat.png)
-
+![storybook](./public/st-book.jpg)
 
 # v2 branch
 1. 메세지 상태(읽음, 읽지 않음)
