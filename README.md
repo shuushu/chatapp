@@ -4,6 +4,10 @@ vue, firebase를 이용해 간단한 채팅 웹앱 만들기
 
 - [기능 추가](https://github.com/shuushu/chatapp/tree/v2#v2-branch) [DEMO](http://gnscjfdl.cafe24.com/chat2)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/master
 
 ## Features
 - vue, vuex, vue-router, vuex-saga, node-sass
@@ -71,9 +75,6 @@ npm run storybook
 
 0) 새로고침 시 세션을 확인해서 내 계정정보를 store에 저장한다.
 
-![Alt text](http://gnscjfdl.cafe24.com/chat/flow.jpg)
-
-
 
 ## ERD
 
@@ -101,3 +102,4 @@ npm run storybook
 4. 입력폼에서 엔터입력시 메세지 push
 
 5. 신규계정 생성 후 접속된 멤버와 챗팅시 챗리스트화면이 안나오는 이슈 수정
+
