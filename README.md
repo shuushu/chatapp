@@ -1,13 +1,5 @@
 # mychat
 vue, firebase를 이용해 간단한 채팅 웹앱 만들기
-[DEMO](http://gnscjfdl.cafe24.com/chat)
-
-- [기능 추가](https://github.com/shuushu/chatapp/tree/v2#v2-branch) [DEMO](http://gnscjfdl.cafe24.com/chat2)
-
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/master
 
 ## Features
 - vue, vuex, vue-router, vuex-saga, node-sass
