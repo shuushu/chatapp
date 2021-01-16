@@ -71,7 +71,7 @@ npm run storybook
 ## ERD
 
 
-![Alt text](http://gnscjfdl.cafe24.com/chat/erd.jpg)
+![chat erd](./dist/chat.png)
 
 
 # v2 branch
