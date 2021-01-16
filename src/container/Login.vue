@@ -120,8 +120,9 @@
       ]),
       createEmail () {
         this.$v.$touch();
-        if (!this.$v.$invalid) {        
-          let { id, pw, name } = this.form;
+        if (!this.$v.$invalid) {
+          let { id, pw, name } = this.form
+
           this.createMailID({ id, pw, name, thumb: this.addFile })        
         }
       },
