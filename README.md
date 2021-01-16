@@ -71,6 +71,8 @@ npm run storybook
 ## ERD
 
 ![chat erd](./dist/chat.png)
+
+## stotybook
 ![storybook](./public/st-book.jpg)
 
 # v2 branch
