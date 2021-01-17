@@ -12,8 +12,7 @@ const routerMap = [
   { name: 'member', path: '/member', component: '/Member'},
   { name: 'ready', path: '/ready', component: '/Ready'},
   { name: 'message', path: '/message/:id', component: '/Message'},
-  { name: 'list', path: '/', component: '/List'},
-  { name: 'error', path: '*', component: '/Error'}  
+  { name: 'member', path: '*', component: '/Member'}  
 ];
 
 const redirectRoute = [
